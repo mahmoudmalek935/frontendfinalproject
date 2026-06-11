@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Link } from "react-router-dom"
+import { Link, useNavigate } from "react-router-dom"
 import {
   Search, Wrench, Zap, Sparkles, PaintRoller, Hammer, Wind,
   Star, ShieldCheck, Award, Lock, ArrowRight, MousePointerClick,
@@ -41,6 +41,16 @@ const providerSteps = [
 
 export default function Home() {
   const [query, setQuery] = useState("")
+  const navigate = useNavigate()
+
+  // فنكشن عشان نشغل زرار البحث
+  const handleSearch = () => {
+    if (query.trim()) {
+      navigate(`/providers?category=${query}`)
+    } else {
+      navigate('/providers')
+    }
+  }
 
   return (
     <div className="bg-slate-100 font-sans text-slate-800">
@@ -66,21 +76,31 @@ export default function Home() {
                   <input
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
                     type="text"
                     placeholder="Search for Plumbing, Cleaning..."
                     className="w-full bg-transparent py-2.5 text-sm text-slate-800 placeholder:text-slate-400 border-none focus:outline-none focus:ring-0"
                   />
                 </div>
-                <button className="inline-flex cursor-pointer border-none items-center justify-center gap-2 rounded-xl bg-cyan-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 sm:rounded-full">
+                <button 
+                  onClick={handleSearch}
+                  className="inline-flex cursor-pointer border-none items-center justify-center gap-2 rounded-xl bg-cyan-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 sm:rounded-full"
+                >
                   Find Expert <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
+              
+              {/* تعديل التاجز لروابط حقيقية */}
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm text-slate-500">
                 <span className="font-medium text-slate-600">Popular:</span>
                 {["Plumbing", "AC Repair", "Cleaning", "Electrical"].map((tag) => (
-                  <span key={tag} className="cursor-pointer rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-cyan-50 hover:text-cyan-700">
+                  <Link 
+                    key={tag} 
+                    to={`/providers?category=${tag}`}
+                    className="cursor-pointer rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-cyan-50 hover:text-cyan-700 decoration-none"
+                  >
                     {tag}
-                  </span>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -103,7 +123,9 @@ export default function Home() {
                 </div>
                 <h3 className="mt-5 text-xl font-bold text-slate-900">{service.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{service.desc}</p>
-                <Link to="/providers" className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-cyan-700 transition-colors group-hover:text-amber-500 decoration-none">
+                
+                {/* تعديل اللينك هنا ليمرر اسم القسم في الـ URL */}
+                <Link to={`/providers?category=${service.title}`} className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-cyan-700 transition-colors group-hover:text-amber-500 decoration-none">
                   View Professionals <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
               </div>
@@ -130,7 +152,6 @@ export default function Home() {
                 <div className="p-6">
                   <h3 className="text-xl font-bold text-slate-900">{provider.name}</h3>
                   <p className="mt-1 text-sm font-medium text-cyan-700">{provider.specialty}</p>
-                  {/* تم تعديل اللينك هنا ليوجه لصفحة البروفايل */}
                   <Link to={`/provider/${provider.name.toLowerCase().replace(' ', '-')}`} className="mt-5 flex justify-center w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 decoration-none">
                     View Profile
                   </Link>
@@ -217,7 +238,7 @@ export default function Home() {
               </ul>
             </div>
             <Link to="/register" className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-amber-500 px-8 py-4 text-base font-bold text-white shadow-lg transition-colors hover:bg-amber-600 decoration-none">
-              Join as Provider <ArrowRight className="h-5 w-5" />
+              Join Baytack <ArrowRight className="h-5 w-5" />
             </Link>
           </div>
         </div>

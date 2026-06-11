@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { Link, useSearchParams } from "react-router-dom"
 import { Search, ShieldCheck, Star, MapPin, SlidersHorizontal } from "lucide-react"
 
 const CATEGORIES = ["Plumbing", "Electrical", "Cleaning", "Painting", "Carpentry", "AC Repair"]
@@ -57,10 +57,24 @@ const PROVIDERS = [
 ]
 
 export default function Providers() {
+  // قراءة القسم من اللينك
+  const [searchParams] = useSearchParams()
+  const categoryFromUrl = searchParams.get("category")
+
   const [search, setSearch] = useState("")
-  const [selectedCategories, setSelectedCategories] = useState([])
+  // تعيين القسم المختار بناءً على اللينك (لو موجود)
+  const [selectedCategories, setSelectedCategories] = useState(
+    categoryFromUrl ? [categoryFromUrl] : []
+  )
   const [selectedLocations, setSelectedLocations] = useState([])
   const [minRating, setMinRating] = useState(null)
+
+  // تحديث الفلتر لو اليوزر داس على لينك تاني وهو جوه الصفحة
+  useEffect(() => {
+    if (categoryFromUrl) {
+      setSelectedCategories([categoryFromUrl])
+    }
+  }, [categoryFromUrl])
 
   const toggle = (value, list, setList) => {
     setList(list.includes(value) ? list.filter((v) => v !== value) : [...list, value])
@@ -83,6 +97,7 @@ export default function Providers() {
     const matchesCategory =
       selectedCategories.length === 0 ||
       selectedCategories.some((c) => p.specialty.toLowerCase().includes(c.toLowerCase().split(" ")[0]))
+    
     return matchesSearch && matchesLocation && matchesRating && matchesCategory
   })
 
@@ -243,9 +258,9 @@ export default function Providers() {
                     {/* View Profile */}
                     <Link 
                       to={`/provider/${p.name.toLowerCase().replace(' ', '-')}`} 
-                      className="mt-auto pt-4"
+                      className="mt-auto pt-4 decoration-none"
                     >
-                      <button className="w-full rounded-lg bg-cyan-600 py-2.5 font-semibold text-white transition-colors hover:bg-cyan-700 border-none cursor-pointer">
+                      <button className="w-full rounded-lg bg-cyan-600 py-2.5 font-semibold text-white transition-colors hover:bg-cyan-700 border-none cursor-pointer shadow-sm">
                         View Profile
                       </button>
                     </Link>
