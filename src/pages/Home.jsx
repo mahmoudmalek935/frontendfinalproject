@@ -130,7 +130,8 @@ export default function Home() {
                 <div className="p-6">
                   <h3 className="text-xl font-bold text-slate-900">{provider.name}</h3>
                   <p className="mt-1 text-sm font-medium text-cyan-700">{provider.specialty}</p>
-                  <Link to="/providers" className="mt-5 flex justify-center w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 decoration-none">
+                  {/* تم تعديل اللينك هنا ليوجه لصفحة البروفايل */}
+                  <Link to={`/provider/${provider.name.toLowerCase().replace(' ', '-')}`} className="mt-5 flex justify-center w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 decoration-none">
                     View Profile
                   </Link>
                 </div>
