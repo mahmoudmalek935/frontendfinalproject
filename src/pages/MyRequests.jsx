@@ -1,82 +1,134 @@
-import { useState } from 'react';
-import { Star, MessageSquare, Clock, CheckCircle2, AlertCircle, XCircle, RotateCcw } from 'lucide-react';
+import { useState } from "react"
+import { 
+  Clock, 
+  CheckCircle2, 
+  AlertCircle, 
+  XCircle, 
+  Eye, 
+  Star, 
+  User, 
+  Trash2,
+  Wrench
+} from "lucide-react"
+
+const initialRequests = [
+  {
+    id: "#1024",
+    date: "Oct 25, 2026",
+    service: "Electrical Wiring Repair",
+    provider: "Karim Hassan",
+    status: "In Progress",
+    paid: null,
+  },
+  {
+    id: "#1025",
+    date: "Oct 26, 2026",
+    service: "Deep Home Cleaning",
+    provider: "Searching for expert...",
+    status: "Pending",
+    paid: null,
+  },
+  {
+    id: "#1010",
+    date: "Oct 10, 2026",
+    service: "Plumbing Fix",
+    provider: "Mostafa Ali",
+    status: "Completed",
+    paid: "350 EGP",
+  }
+]
+
+const FILTERS = ["All", "Pending", "In Progress", "Completed", "Cancelled"]
 
 export default function MyRequests() {
-  const [activeFilter, setActiveFilter] = useState('All');
-  const filters = ['All', 'Pending', 'In Progress', 'Completed', 'Cancelled'];
+  const [requests, setRequests] = useState(initialRequests)
+  const [activeFilter, setActiveFilter] = useState("All")
 
-  const requests = [
-    {
-      id: 1024,
-      date: 'Oct 25, 2026',
-      status: 'In Progress',
-      statusColor: 'bg-cyan-100 text-cyan-700',
-      statusIcon: Clock,
-      service: 'Electrical Wiring Repair',
-      provider: 'Karim Hassan',
-      avatar: 'K',
-      actions: ['View Details', 'Message Provider'],
-    },
-    {
-      id: 1025,
-      date: 'Oct 26, 2026',
-      status: 'Pending Approval',
-      statusColor: 'bg-amber-100 text-amber-700',
-      statusIcon: AlertCircle,
-      service: 'Deep Home Cleaning',
-      provider: 'Searching for expert...',
-      avatar: null,
-      actions: ['Cancel Request'],
-    },
-    {
-      id: 1010,
-      date: 'Oct 10, 2026',
-      status: 'Completed',
-      statusColor: 'bg-green-100 text-green-700',
-      statusIcon: CheckCircle2,
-      service: 'Plumbing Fix',
-      provider: 'Mostafa Ali',
-      avatar: 'M',
-      paid: '350 EGP',
-      actions: ['Rate Service', 'Rebook'],
-    },
-  ];
+  // حساب الإحصائيات
+  const totalRequests = requests.length
+  const pendingRequests = requests.filter(r => r.status === "Pending").length
+  const completedRequests = requests.filter(r => r.status === "Completed").length
+
+  // فلترة الطلبات
+  const filteredRequests = requests.filter(req => {
+    if (activeFilter === "All") return true
+    return req.status === activeFilter
+  })
+
+  // الأكشنز (Actions)
+  const handleViewDetails = (id) => {
+    alert(`Redirecting to details page for order ${id}...`);
+  }
+
+  const handleCancel = (id) => {
+    if (window.confirm(`Are you sure you want to cancel order ${id}?`)) {
+      setRequests(prev => prev.map(req => 
+        req.id === id ? { ...req, status: "Cancelled", provider: "Cancelled by user" } : req
+      ))
+    }
+  }
+
+  const handleRate = (id) => {
+    const rating = window.prompt(`Rate the service for order ${id} (1 to 5 stars):`, "5");
+    if (rating && !isNaN(rating) && rating >= 1 && rating <= 5) {
+      alert(`Thank you! You rated order ${id} with ${rating} stars.`);
+    } else if (rating) {
+      alert("Please enter a valid number between 1 and 5.");
+    }
+  }
+
+  // فنكشن عشان نجيب لون ونوع كل Status
+  const getStatusStyle = (status) => {
+    switch(status) {
+      case "Pending":
+        return { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", icon: <Clock className="w-4 h-4" /> }
+      case "In Progress":
+        return { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200", icon: <Wrench className="w-4 h-4" /> }
+      case "Completed":
+        return { bg: "bg-green-50", text: "text-green-700", border: "border-green-200", icon: <CheckCircle2 className="w-4 h-4" /> }
+      case "Cancelled":
+        return { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: <XCircle className="w-4 h-4" /> }
+      default:
+        return { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200", icon: <AlertCircle className="w-4 h-4" /> }
+    }
+  }
 
   return (
-    <div className="py-12 bg-slate-100 text-slate-900">
-      <div className="max-w-4xl mx-auto px-6">
-        {/* Dashboard Header */}
-        <div className="mb-12">
-          <h1 className="text-3xl font-bold text-slate-900 mb-2">My Service Requests</h1>
-          <p className="text-slate-600 mb-8">Track and manage your home service bookings.</p>
+    <div className="py-8 bg-slate-50 min-h-screen">
+      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+        
+        {/* Header */}
+        <header className="mb-8">
+          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">My Service Requests</h1>
+          <p className="mt-2 text-sm font-medium text-slate-500">Track and manage your home service bookings.</p>
+        </header>
 
-          {/* Quick Summary Row */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
-              <div className="text-sm text-slate-600 font-medium">Total Requests</div>
-              <div className="text-3xl font-bold text-slate-900 mt-2">3</div>
-            </div>
-            <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
-              <div className="text-sm text-slate-600 font-medium">Pending</div>
-              <div className="text-3xl font-bold text-amber-500 mt-2">1</div>
-            </div>
-            <div className="bg-white rounded-lg border border-slate-200 p-6 shadow-sm">
-              <div className="text-sm text-slate-600 font-medium">Completed</div>
-              <div className="text-3xl font-bold text-green-600 mt-2">2</div>
-            </div>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <p className="text-sm font-bold text-slate-500 mb-2">Total Requests</p>
+            <p className="text-3xl font-extrabold text-slate-900">{totalRequests}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <p className="text-sm font-bold text-amber-500 mb-2">Pending</p>
+            <p className="text-3xl font-extrabold text-amber-600">{pendingRequests}</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+            <p className="text-sm font-bold text-green-500 mb-2">Completed</p>
+            <p className="text-3xl font-extrabold text-green-600">{completedRequests}</p>
           </div>
         </div>
 
-        {/* Filter/Tabs Row */}
-        <div className="mb-8 flex gap-3 overflow-x-auto pb-2">
-          {filters.map((filter) => (
+        {/* Filters */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          {FILTERS.map(filter => (
             <button
               key={filter}
               onClick={() => setActiveFilter(filter)}
-              className={`px-5 py-2 rounded-full font-medium text-sm whitespace-nowrap transition-colors cursor-pointer ${
-                activeFilter === filter
-                  ? 'bg-cyan-600 text-white border-cyan-600'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              className={`px-4 py-2 rounded-full text-sm font-bold transition-colors border cursor-pointer ${
+                activeFilter === filter 
+                  ? "bg-cyan-600 text-white border-cyan-600 shadow-sm" 
+                  : "bg-white text-slate-600 border-slate-200 hover:border-cyan-300"
               }`}
             >
               {filter}
@@ -85,85 +137,91 @@ export default function MyRequests() {
         </div>
 
         {/* Requests List */}
-        <div className="space-y-4">
-          {requests.map((request) => {
-            const StatusIcon = request.statusIcon;
-            return (
-              <div
-                key={request.id}
-                className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-shadow"
-              >
-                {/* Card Header */}
-                <div className="flex items-center justify-between bg-slate-50 px-6 py-4 border-b border-slate-200">
-                  <div>
-                    <p className="font-semibold text-slate-900">Order #{request.id}</p>
-                    <p className="text-sm text-slate-600">Date: {request.date}</p>
+        <div className="flex flex-col gap-4">
+          {filteredRequests.length === 0 ? (
+            <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-12 text-center">
+              <AlertCircle className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+              <p className="text-lg font-bold text-slate-900">No requests found</p>
+              <p className="text-sm text-slate-500 mt-1">You don't have any requests in this category.</p>
+            </div>
+          ) : (
+            filteredRequests.map(req => {
+              const statusStyle = getStatusStyle(req.status)
+              
+              return (
+                <div key={req.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-shadow hover:shadow-md">
+                  
+                  {/* Card Header */}
+                  <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
+                    <div>
+                      <p className="text-sm font-extrabold text-slate-900">Order {req.id}</p>
+                      <p className="text-xs font-medium text-slate-500 mt-0.5">Date: {req.date}</p>
+                    </div>
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}>
+                      {statusStyle.icon}
+                      {req.status}
+                    </span>
                   </div>
-                  <div className={`flex items-center gap-2 px-4 py-2 rounded-full ${request.statusColor}`}>
-                    <StatusIcon className="w-4 h-4" />
-                    <span className="font-medium text-sm">{request.status}</span>
-                  </div>
-                </div>
 
-                {/* Card Body */}
-                <div className="px-6 py-5">
-                  <h3 className="text-lg font-semibold text-slate-900 mb-3">{request.service}</h3>
-                  <div className="flex items-center gap-3">
-                    {request.avatar ? (
-                      <div className="w-10 h-10 bg-cyan-600 text-white rounded-full flex items-center justify-center font-semibold">
-                        {request.avatar}
+                  {/* Card Body */}
+                  <div className="px-6 py-5">
+                    <h3 className="text-lg font-bold text-slate-900 mb-4">{req.service}</h3>
+                    
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                        <User className="w-5 h-5" />
                       </div>
-                    ) : (
-                      <div className="w-10 h-10 bg-slate-200 rounded-full flex items-center justify-center">
-                        <Clock className="w-5 h-5 text-slate-400" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">Provider</p>
+                        <p className="text-sm font-bold text-slate-900">{req.provider}</p>
+                      </div>
+                    </div>
+
+                    {req.paid && (
+                      <div className="mt-4 pt-4 border-t border-slate-100">
+                        <p className="text-sm font-medium text-slate-500">
+                          Total Paid: <span className="font-extrabold text-slate-900">{req.paid}</span>
+                        </p>
                       </div>
                     )}
-                    <div className="flex-1">
-                      <p className="font-medium text-slate-900">Provider: {request.provider}</p>
-                      {request.paid && <p className="text-sm text-slate-600">Total Paid: {request.paid}</p>}
-                    </div>
                   </div>
-                </div>
 
-                {/* Card Footer/Actions */}
-                <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex gap-3">
-                  {request.actions.map((action) => {
-                    let buttonStyle = 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50';
-                    let icon = null;
+                  {/* Card Footer (Actions) */}
+                  <div className="px-6 py-4 bg-slate-50 flex flex-wrap gap-3 border-t border-slate-100">
+                    <button 
+                      onClick={() => handleViewDetails(req.id)}
+                      className="inline-flex items-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-xl text-sm font-bold hover:bg-cyan-700 transition-colors cursor-pointer border-none shadow-sm"
+                    >
+                      <Eye className="w-4 h-4" /> View Details
+                    </button>
 
-                    if (action === 'Message Provider') {
-                      icon = MessageSquare;
-                    } else if (action === 'Rate Service') {
-                      icon = Star;
-                      buttonStyle = 'bg-amber-100 text-amber-600 border border-amber-200 hover:bg-amber-50 border-none';
-                    } else if (action === 'Cancel Request') {
-                      icon = XCircle;
-                      buttonStyle = 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 border-none';
-                    } else if (action === 'Rebook') {
-                      icon = RotateCcw;
-                      buttonStyle = 'bg-cyan-100 text-cyan-600 border border-cyan-200 hover:bg-cyan-50 border-none';
-                    } else if (action === 'View Details') {
-                      buttonStyle = 'bg-cyan-600 text-white hover:bg-cyan-700 border-none';
-                    }
-
-                    const Icon = icon;
-
-                    return (
-                      <button
-                        key={action}
-                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors flex items-center gap-2 cursor-pointer ${buttonStyle}`}
+                    {/* أزرار حسب الحالة */}
+                    {req.status === "Pending" && (
+                      <button 
+                        onClick={() => handleCancel(req.id)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white text-rose-600 border border-rose-200 rounded-xl text-sm font-bold hover:bg-rose-50 transition-colors cursor-pointer"
                       >
-                        {Icon && <Icon className="w-4 h-4" />}
-                        {action}
+                        <Trash2 className="w-4 h-4" /> Cancel Request
                       </button>
-                    );
-                  })}
+                    )}
+
+                    {req.status === "Completed" && (
+                      <button 
+                        onClick={() => handleRate(req.id)}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white text-amber-600 border border-amber-200 rounded-xl text-sm font-bold hover:bg-amber-50 transition-colors cursor-pointer"
+                      >
+                        <Star className="w-4 h-4" /> Rate Service
+                      </button>
+                    )}
+                  </div>
+
                 </div>
-              </div>
-            );
-          })}
+              )
+            })
+          )}
         </div>
+
       </div>
     </div>
-  );
+  )
 }

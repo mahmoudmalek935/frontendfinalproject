@@ -25,9 +25,11 @@ import History from './pages/History';
 import ManageCategories from './pages/ManageCategories';
 import Blog from './pages/Blog';
 import ManageUsers from './pages/ManageUsers';
-
-
-
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
+import ProviderOnboarding from './pages/ProviderOnboarding';
+import ProviderEditProfile from './pages/ProviderEditProfile';
+import CustomerProfile from './pages/CustomerProfile';
 
 
 // سكرول للصفحة من فوق
@@ -78,7 +80,11 @@ function App() {
           <Route path="/manage-categories" element={<ManageCategories />} />
           <Route path="/blog" element={<Blog />} />
           <Route path="/manage-users" element={<ManageUsers />} />
-
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/provider-onboarding" element={<ProviderOnboarding />} />
+          <Route path="/provider/edit" element={<ProviderEditProfile />} />
+          <Route path="/my-profile" element={<CustomerProfile />} />
 
           {/* حط هنا أي صفحات تانية عايز فيها ناف بار */}
         </Route>

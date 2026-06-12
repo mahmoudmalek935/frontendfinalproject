@@ -13,6 +13,8 @@ export default function EditProfile() {
   });
 
   const [isSaving, setIsSaving] = useState(false);
+  // 🔴 1. State الجديد لحفظ الصورة المعروضة 🔴
+  const [profileImage, setProfileImage] = useState(null);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -20,6 +22,18 @@ export default function EditProfile() {
       ...prev,
       [name]: value,
     }));
+  };
+
+  // 🔴 2. فنكشن معالجة رفع الصورة 🔴
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0]; // قراءة الملف المختار
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setProfileImage(event.target.result); // حفظ الصورة كـ base64 لعرضها
+      };
+      reader.readAsDataURL(file); // تحويل الملف لـ Data URL
+    }
   };
 
   const handleSave = () => {
@@ -39,6 +53,8 @@ export default function EditProfile() {
       city: 'Alexandria',
       bio: 'Looking for reliable home maintenance services.',
     });
+    // لإعادة تعيين الصورة المرفوعة (لو حابب)
+    // setProfileImage(null); 
   };
 
   return (
@@ -50,25 +66,52 @@ export default function EditProfile() {
             {/* Avatar Section */}
             <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 mb-6">
               <div className="flex flex-col items-center">
-                <div className="relative mb-4">
-                  {/* Avatar */}
-                  <div className="w-32 h-32 rounded-full bg-gradient-to-br from-cyan-600 to-cyan-400 flex items-center justify-center text-white text-4xl font-bold shadow-inner">
-                    {formData.firstName[0]}{formData.lastName[0]}
-                  </div>
-                  {/* Camera overlay button */}
-                  <button className="absolute bottom-0 right-0 bg-amber-500 hover:bg-amber-600 text-white rounded-full p-3 shadow-lg transition-colors duration-200 border-none cursor-pointer">
+                
+                {/* 🔴 3. تعديل جزء الـ Avatar ليكون Clickable 🔴 */}
+                {/* جعلنا الحاوية كلها label واحدة مربوطة بالـ input المخفي */}
+                <label className="relative mb-4 cursor-pointer inline-block group">
+                  {/* الـ input المخفي لرفع الملفات */}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="hidden" // مخفي برمجياً
+                  />
+
+                  {/* Avatar (بيظهر الـ Gradient أو الصورة المرفوعة) */}
+                  {profileImage ? (
+                    <img 
+                      src={profileImage} 
+                      alt="Profile" 
+                      className="w-32 h-32 rounded-full object-cover shadow-inner border-2 border-cyan-100"
+                    />
+                  ) : (
+                    <div className="w-32 h-32 rounded-full bg-gradient-to-br from-cyan-600 to-cyan-400 flex items-center justify-center text-white text-4xl font-bold shadow-inner">
+                      {formData.firstName[0]}{formData.lastName[0]}
+                    </div>
+                  )}
+
+                  {/* Camera overlay button (دلوقتي هو جزء من الـ label) */}
+                  <div className="absolute bottom-0 right-0 bg-amber-500 group-hover:bg-amber-600 text-white rounded-full p-3 shadow-lg transition-colors duration-200 border-none">
                     <Camera size={20} />
-                  </button>
-                </div>
+                  </div>
+
+                  {/* تأثير التظليل عند الوقوف بالماوس */}
+                  <div className="absolute inset-0 bg-slate-900/10 hidden group-hover:flex items-center justify-center rounded-full transition-all">
+                  </div>
+                </label>
+                {/* 🔴 نهاية التعديل 🔴 */}
+
                 <h3 className="text-xl font-bold text-slate-900 mt-2">
                   {formData.firstName} {formData.lastName}
                 </h3>
                 <p className="text-sm font-medium text-slate-500 mt-1">Customer Account</p>
+                
               </div>
             </div>
 
-            {/* Navigation Tabs */}
-            <nav className="space-y-2 bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
+            {/* Navigation Tabs (ابقيتها معلقة كما في كودك الأصلي) */}
+            {/* <nav className="space-y-2 bg-white rounded-3xl p-4 shadow-sm border border-slate-100">
               {[
                 { id: 'personal', label: 'Personal Info' },
                 { id: 'security', label: 'Security & Password' },
@@ -86,7 +129,7 @@ export default function EditProfile() {
                   {tab.label}
                 </button>
               ))}
-            </nav>
+            </nav> */}
           </div>
 
           {/* Right Form Section */}
@@ -97,13 +140,13 @@ export default function EditProfile() {
                 <h1 className="text-3xl font-bold text-slate-900">
                   Personal Information
                 </h1>
-                <p className="text-slate-500 mt-2 text-lg">
+                <p className="text-slate-500 mt-2 text-lg font-medium">
                   Update your profile details and public bio.
                 </p>
               </div>
 
               {/* Form Grid */}
-              <form className="space-y-8">
+              <form className="space-y-8" onSubmit={(e) => e.preventDefault()}>
                 {/* First Row: First Name & Last Name */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -116,7 +159,7 @@ export default function EditProfile() {
                       name="firstName"
                       value={formData.firstName}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900"
+                      className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900 font-medium"
                     />
                   </div>
                   <div>
@@ -129,7 +172,7 @@ export default function EditProfile() {
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900"
+                      className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900 font-medium"
                     />
                   </div>
                 </div>
@@ -146,7 +189,7 @@ export default function EditProfile() {
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900"
+                      className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900 font-medium"
                     />
                   </div>
                   <div>
@@ -159,7 +202,7 @@ export default function EditProfile() {
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900"
+                      className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900 font-medium"
                     />
                   </div>
                 </div>
@@ -175,7 +218,7 @@ export default function EditProfile() {
                     name="city"
                     value={formData.city}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900"
+                    className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900 font-medium"
                   />
                 </div>
 
@@ -190,7 +233,7 @@ export default function EditProfile() {
                     value={formData.bio}
                     onChange={handleInputChange}
                     rows={4}
-                    className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900 resize-none"
+                    className="w-full px-4 py-3.5 rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition-all text-slate-900 resize-none font-medium"
                   />
                 </div>
 

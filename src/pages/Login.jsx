@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function Login() {
@@ -8,26 +8,33 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   
+  // هنا ضفنا تعريف أداة النقل اللي كانت ناقصة
   const navigate = useNavigate();
 
   const handleSignIn = (e) => {
     e.preventDefault();
-    // دي الخدعة اللي هتنور اللوحات لحد ما نربط بالباك إند
+    // تسجيل الدخول الوهمي وتخزين التوكن
     localStorage.setItem("token", "dummy-test-token-123");
-    navigate(0); // ريفريش عشان الـ Navbar يحس بالتوكن
-    navigate("/"); // توجيه للرئيسية
+    // النقل للرئيسية مع عمل ريفريش عشان الـ Navbar تتغير
+    window.location.href = "/"; 
   };
 
   const handleGoogleSignIn = () => {
-    console.log('Sign in with Google');
+    alert('Google Login integration coming soon!');
   };
 
   const handleAppleSignIn = () => {
-    console.log('Sign in with Apple');
+    alert('Apple Login integration coming soon!');
+  };
+
+  const handleForgotPassword = (e) => {
+    e.preventDefault();
+    // النقل لصفحة نسيت كلمة المرور
+    navigate('/forgot-password');
   };
 
   return (
-    <div className="py-16 bg-slate-50 flex items-center justify-center px-4">
+    <div className="py-16 bg-slate-50 flex items-center justify-center px-4 min-h-[85vh]">
       {/* Main Card */}
       <div className="bg-white rounded-3xl shadow-xl border border-slate-100 max-w-md w-full p-8">
         {/* Header */}
@@ -44,7 +51,7 @@ export default function Login() {
         <form onSubmit={handleSignIn} className="space-y-5">
           {/* Email Input */}
           <div className="relative">
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
+            <label htmlFor="email" className="block text-sm font-bold text-slate-700 mb-2">
               Email Address
             </label>
             <div className="relative">
@@ -55,7 +62,7 @@ export default function Login() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition text-slate-900 placeholder-slate-400"
+                className="w-full pl-12 pr-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition text-slate-900 placeholder-slate-400"
                 required
               />
             </div>
@@ -63,7 +70,7 @@ export default function Login() {
 
           {/* Password Input */}
           <div className="relative">
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
+            <label htmlFor="password" className="block text-sm font-bold text-slate-700 mb-2">
               Password
             </label>
             <div className="relative">
@@ -74,7 +81,7 @@ export default function Login() {
                 placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full pl-12 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition text-slate-900 placeholder-slate-400"
+                className="w-full pl-12 pr-12 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition text-slate-900 placeholder-slate-400"
                 required
               />
               <button
@@ -98,15 +105,19 @@ export default function Login() {
               />
               <span className="text-slate-700 font-medium">Remember me</span>
             </label>
-            <a href="#" className="text-cyan-600 hover:text-cyan-700 font-medium transition decoration-none">
+            <button 
+              type="button"
+              onClick={handleForgotPassword} 
+              className="text-cyan-600 hover:text-cyan-700 font-bold transition decoration-none bg-transparent border-none cursor-pointer p-0"
+            >
               Forgot Password?
-            </a>
+            </button>
           </div>
 
           {/* Sign In Button */}
           <button
             type="submit"
-            className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 rounded-xl transition transform hover:scale-[1.02] active:scale-95 text-base shadow-md border-none cursor-pointer"
+            className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3.5 rounded-xl transition shadow-md border-none cursor-pointer"
           >
             Sign In
           </button>
@@ -115,7 +126,7 @@ export default function Login() {
         {/* Divider */}
         <div className="my-6 flex items-center gap-3">
           <div className="flex-1 h-px bg-slate-200"></div>
-          <span className="text-xs font-medium text-slate-500">Or continue with</span>
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Or continue with</span>
           <div className="flex-1 h-px bg-slate-200"></div>
         </div>
 
@@ -125,7 +136,7 @@ export default function Login() {
           <button
             onClick={handleGoogleSignIn}
             type="button"
-            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-slate-200 bg-white rounded-xl hover:border-slate-300 hover:bg-slate-50 transition font-medium text-slate-700 cursor-pointer"
+            className="flex items-center justify-center gap-2 py-3 px-4 border border-slate-200 bg-white rounded-xl hover:bg-slate-50 transition font-bold text-slate-700 cursor-pointer shadow-sm"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
@@ -140,7 +151,7 @@ export default function Login() {
           <button
             onClick={handleAppleSignIn}
             type="button"
-            className="flex items-center justify-center gap-2 py-3 px-4 border-2 border-slate-200 bg-white rounded-xl hover:border-slate-300 hover:bg-slate-50 transition font-medium text-slate-700 cursor-pointer"
+            className="flex items-center justify-center gap-2 py-3 px-4 border border-slate-200 bg-white rounded-xl hover:bg-slate-50 transition font-bold text-slate-700 cursor-pointer shadow-sm"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
               <path d="M17.05 20.28c-.98.95-2.05.8-3.08.38-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.38C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8.905-.15 1.77-.76 2.84-.64 1.2.12 2.09.72 2.59 1.81-2.62 1.58-2.24 5.98.48 7.13-.55 1.49-1.36 2.06-2.99 2.27z" />
@@ -153,7 +164,7 @@ export default function Login() {
         <div className="text-center text-sm text-slate-600">
           Don't have an account?{' '}
           <Link to="/register" className="text-cyan-600 hover:text-cyan-700 font-bold transition decoration-none">
-            Register
+            Sign up
           </Link>
         </div>
       </div>

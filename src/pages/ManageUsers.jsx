@@ -1,4 +1,5 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   Search,
   ChevronDown,
@@ -8,64 +9,37 @@ import {
   ChevronLeft,
   ChevronRight,
   Users,
+  ArrowLeft
 } from "lucide-react"
 
-const USERS = [
-  {
-    id: 1,
-    name: "Sara Al-Mutairi",
-    email: "sara.almutairi@email.com",
-    avatar: "SA",
-    role: "Customer",
-    joinDate: "Jan 12, 2026",
-    status: "Active",
-  },
-  {
-    id: 2,
-    name: "Khalid Hassan",
-    email: "khalid.hassan@email.com",
-    avatar: "KH",
-    role: "Provider",
-    joinDate: "Feb 03, 2026",
-    status: "Active",
-  },
-  {
-    id: 3,
-    name: "Layla Ibrahim",
-    email: "layla.ibrahim@email.com",
-    avatar: "LI",
-    role: "Customer",
-    joinDate: "Feb 28, 2026",
-    status: "Suspended",
-  },
-  {
-    id: 4,
-    name: "Omar Abdullah",
-    email: "omar.abdullah@email.com",
-    avatar: "OA",
-    role: "Provider",
-    joinDate: "Mar 15, 2026",
-    status: "Active",
-  },
-  {
-    id: 5,
-    name: "Noura Saleh",
-    email: "noura.saleh@email.com",
-    avatar: "NS",
-    role: "Customer",
-    joinDate: "Apr 02, 2026",
-    status: "Suspended",
-  },
+// زودنا الداتا شوية عشان نجرب تقليب الصفحات
+const initialUsers = [
+  { id: 1, name: "Sara Al-Mutairi", email: "sara.almutairi@email.com", avatar: "SA", role: "Customer", joinDate: "Jan 12, 2026", status: "Active" },
+  { id: 2, name: "Khalid Hassan", email: "khalid.hassan@email.com", avatar: "KH", role: "Provider", joinDate: "Feb 03, 2026", status: "Active" },
+  { id: 3, name: "Layla Ibrahim", email: "layla.ibrahim@email.com", avatar: "LI", role: "Customer", joinDate: "Feb 28, 2026", status: "Suspended" },
+  { id: 4, name: "Omar Abdullah", email: "omar.abdullah@email.com", avatar: "OA", role: "Provider", joinDate: "Mar 15, 2026", status: "Active" },
+  { id: 5, name: "Noura Saleh", email: "noura.saleh@email.com", avatar: "NS", role: "Customer", joinDate: "Apr 02, 2026", status: "Suspended" },
+  { id: 6, name: "Ali Mahmoud", email: "ali.m@email.com", avatar: "AM", role: "Provider", joinDate: "May 10, 2026", status: "Active" },
+  { id: 7, name: "Hoda Ali", email: "hoda.ali@email.com", avatar: "HA", role: "Customer", joinDate: "May 15, 2026", status: "Active" },
 ]
 
 const ROLE_FILTERS = ["All Roles", "Customer", "Provider"]
 
 export default function ManageUsers() {
+  const navigate = useNavigate();
+  
+  // 🔴 اللوجيك الجديد (State) 🔴
+  const [users, setUsers] = useState(initialUsers) // الداتا بقت متغيرة عشان نقدر نمسح منها
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("All Roles")
   const [filterOpen, setFilterOpen] = useState(false)
+  
+  // متغيرات الصفحات (Pagination)
+  const [currentPage, setCurrentPage] = useState(1)
+  const itemsPerPage = 4 // هنعرض 4 في كل صفحة
 
-  const filtered = USERS.filter((u) => {
+  // فلترة الداتا
+  const filtered = users.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(search.toLowerCase()) ||
       u.email.toLowerCase().includes(search.toLowerCase())
@@ -73,19 +47,52 @@ export default function ManageUsers() {
     return matchesSearch && matchesRole
   })
 
-  const handleEdit = (name) => {
-    alert(`Editing user: ${name}`);
+  // لو عملنا سيرش أو فلتر، نرجع للصفحة الأولى أوتوماتيك
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [search, roleFilter])
+
+  // حسابات الصفحات
+  const totalPages = Math.ceil(filtered.length / itemsPerPage)
+  const startIndex = (currentPage - 1) * itemsPerPage
+  const paginatedUsers = filtered.slice(startIndex, startIndex + itemsPerPage)
+
+  // فنكشن المسح
+  const handleDelete = (id, name) => {
+    if (window.confirm(`Are you sure you want to delete ${name}?`)) {
+      setUsers((prev) => prev.filter((user) => user.id !== id))
+    }
   }
 
-  const handleDelete = (name) => {
-    if (window.confirm(`Are you sure you want to delete ${name}?`)) {
-      alert(`User ${name} deleted.`);
-    }
+  const handleEdit = (name) => {
+    alert(`Editing user: ${name} (Will open edit modal in production)`);
+  }
+
+  // فنكشن تصدير البيانات (Export to CSV)
+  const handleExport = () => {
+    const headers = "ID,Name,Email,Role,Status,Join Date\n";
+    const csvData = users.map(u => `${u.id},${u.name},${u.email},${u.role},${u.status},${u.joinDate}`).join("\n");
+    const blob = new Blob([headers + csvData], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "Baytak_Users.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   }
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
       <div className="mx-auto max-w-6xl">
+        
+        <button 
+          onClick={() => navigate('/admin')}
+          className="mb-4 flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-cyan-600 transition-colors bg-transparent border-none cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
+        </button>
+
         {/* Header */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3">
@@ -97,7 +104,11 @@ export default function ManageUsers() {
               <p className="text-sm text-slate-500 font-medium">Manage Baytak customers and providers</p>
             </div>
           </div>
-          <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-cyan-700 border-none cursor-pointer">
+          {/* 🔴 زرار التصدير شغال 🔴 */}
+          <button 
+            onClick={handleExport}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-cyan-700 border-none cursor-pointer"
+          >
             <Download className="h-4 w-4" />
             Export Data
           </button>
@@ -159,14 +170,15 @@ export default function ManageUsers() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.length === 0 ? (
+                {paginatedUsers.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-6 py-12 text-center text-sm font-medium text-slate-500">
                       No users found matching your criteria.
                     </td>
                   </tr>
                 ) : (
-                  filtered.map((user) => (
+                  // 🔴 بنعرض الداتا بتاعة الصفحة الحالية بس 🔴
+                  paginatedUsers.map((user) => (
                     <tr key={user.id} className="border-b border-slate-100 transition hover:bg-slate-50/60">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
@@ -211,14 +223,12 @@ export default function ManageUsers() {
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleEdit(user.name)}
-                            aria-label={`Edit ${user.name}`}
                             className="rounded-lg p-2 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 border-none bg-transparent cursor-pointer"
                           >
                             <Pencil className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(user.name)}
-                            aria-label={`Delete ${user.name}`}
+                            onClick={() => handleDelete(user.id, user.name)}
                             className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 border-none bg-transparent cursor-pointer"
                           >
                             <Trash2 className="h-4 w-4" />
@@ -232,30 +242,48 @@ export default function ManageUsers() {
             </table>
           </div>
 
-          {/* Pagination */}
+          {/* 🔴 Pagination شغال بالكامل 🔴 */}
           <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row bg-slate-50/50">
             <p className="text-sm font-medium text-slate-500">
-              Showing <span className="font-bold text-slate-700">{filtered.length}</span> of{" "}
-              <span className="font-bold text-slate-700">{USERS.length}</span> users
+              Showing <span className="font-bold text-slate-700">{paginatedUsers.length}</span> of{" "}
+              <span className="font-bold text-slate-700">{filtered.length}</span> users
             </p>
-            <div className="flex items-center gap-1">
-              <button className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer">
-                <ChevronLeft className="h-4 w-4" />
-                Prev
-              </button>
-              <button className="h-8 w-8 rounded-lg bg-cyan-600 text-sm font-bold text-white border-none cursor-pointer">1</button>
-              <button className="h-8 w-8 rounded-lg bg-white border border-slate-200 text-sm font-medium text-slate-600 transition hover:bg-slate-50 cursor-pointer">
-                2
-              </button>
-              <button className="h-8 w-8 rounded-lg bg-white border border-slate-200 text-sm font-medium text-slate-600 transition hover:bg-slate-50 cursor-pointer">
-                3
-              </button>
-              <button className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 cursor-pointer">
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </button>
-            </div>
+            
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                <button 
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="h-4 w-4" /> Prev
+                </button>
+                
+                {Array.from({ length: totalPages }).map((_, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`h-8 w-8 rounded-lg text-sm font-bold border cursor-pointer ${
+                      currentPage === i + 1 
+                        ? 'bg-cyan-600 text-white border-cyan-600' 
+                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+
+                <button 
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                >
+                  Next <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            )}
           </div>
+
         </div>
       </div>
     </main>

@@ -1,4 +1,4 @@
-import { ArrowRight, Calendar, User, Clock } from 'lucide-react';
+import { Calendar, User } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 const BLOG_POSTS = [
@@ -8,7 +8,6 @@ const BLOG_POSTS = [
     excerpt: "Winter in Egypt can be tough on pipes. Learn the top 10 things you need to check before the cold season starts to avoid costly repairs.",
     category: "Plumbing",
     date: "Oct 15, 2026",
-    readTime: "5 min read",
     author: "Baytak Team",
     image: "https://images.unsplash.com/photo-1585704032915-c3400ca199e7?q=80&w=2070&auto=format&fit=crop"
   },
@@ -18,7 +17,6 @@ const BLOG_POSTS = [
     excerpt: "With summer approaching, choosing the right AC capacity is crucial. Read our complete guide on sizing and energy efficiency.",
     category: "Cooling",
     date: "Sep 28, 2026",
-    readTime: "8 min read",
     author: "Karim Hassan",
     image: "https://images.unsplash.com/photo-1599839619722-39751411ea63?q=80&w=2069&auto=format&fit=crop"
   },
@@ -28,7 +26,6 @@ const BLOG_POSTS = [
     excerpt: "Some electrical tasks are safe for DIY, but others can be deadly. Learn when it's time to put down the tools and call a pro.",
     category: "Electrical",
     date: "Sep 10, 2026",
-    readTime: "6 min read",
     author: "Mostafa Electric",
     image: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=2069&auto=format&fit=crop"
   },
@@ -38,7 +35,6 @@ const BLOG_POSTS = [
     excerpt: "You don't need a massive budget to breathe new life into your living space. A little paint and carpentry can go a long way.",
     category: "Home Improvement",
     date: "Aug 22, 2026",
-    readTime: "4 min read",
     author: "Baytak Team",
     image: "https://images.unsplash.com/photo-1583847268964-b28dc8f51f92?q=80&w=1974&auto=format&fit=crop"
   },
@@ -48,7 +44,6 @@ const BLOG_POSTS = [
     excerpt: "Tackling a full house deep clean? Follow our room-by-room checklist to make sure you don't miss a single spot.",
     category: "Cleaning",
     date: "Aug 05, 2026",
-    readTime: "7 min read",
     author: "Sparkle Co.",
     image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=2070&auto=format&fit=crop"
   },
@@ -58,7 +53,6 @@ const BLOG_POSTS = [
     excerpt: "Keep ants, roaches, and mosquitoes out of your home this summer with these effective, eco-friendly prevention strategies.",
     category: "Pest Control",
     date: "Jul 18, 2026",
-    readTime: "5 min read",
     author: "Baytak Team",
     image: "https://images.unsplash.com/photo-1587823999616-2a8d54238719?q=80&w=1932&auto=format&fit=crop"
   }
@@ -81,35 +75,30 @@ export default function Blog() {
         </div>
 
         {/* Featured Post (Top) */}
-        <div className="mb-16 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col lg:flex-row group cursor-pointer hover:shadow-md transition-shadow">
-          <div className="lg:w-1/2 relative h-64 lg:h-auto overflow-hidden">
+        <div className="mb-16 bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col lg:flex-row group hover:shadow-md transition-shadow">
+          <div className="lg:w-1/2 relative h-64 lg:h-auto overflow-hidden bg-slate-200">
             <img 
               src={featuredPost.image} 
               alt={featuredPost.title} 
               className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
             />
             <div className="absolute top-4 left-4 bg-amber-500 text-white text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wide shadow-sm">
-              Featured
+              Featured Tip
             </div>
           </div>
           <div className="lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center">
             <span className="text-cyan-600 font-bold text-sm tracking-wide uppercase mb-3">
               {featuredPost.category}
             </span>
-            <h2 className="text-3xl font-bold text-slate-900 mb-4 group-hover:text-cyan-600 transition-colors">
+            <h2 className="text-3xl font-bold text-slate-900 mb-4 transition-colors">
               {featuredPost.title}
             </h2>
             <p className="text-slate-600 text-lg leading-relaxed mb-6">
               {featuredPost.excerpt}
             </p>
-            <div className="flex items-center gap-4 text-sm text-slate-500 mb-8 font-medium">
+            <div className="flex items-center gap-4 text-sm text-slate-500 font-medium">
               <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4" /> {featuredPost.date}</span>
-              <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> {featuredPost.readTime}</span>
-            </div>
-            <div>
-              <button className="inline-flex items-center gap-2 bg-slate-900 hover:bg-cyan-600 text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-300 border-none cursor-pointer">
-                Read Article <ArrowRight className="w-4 h-4" />
-              </button>
+              <span className="flex items-center gap-1.5"><User className="w-4 h-4" /> {featuredPost.author}</span>
             </div>
           </div>
         </div>
@@ -117,7 +106,7 @@ export default function Blog() {
         {/* Regular Posts Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {regularPosts.map((post) => (
-            <article key={post.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col group cursor-pointer hover:shadow-md transition-shadow">
+            <article key={post.id} className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden flex flex-col group hover:shadow-md transition-shadow">
               <div className="relative h-56 overflow-hidden bg-slate-200">
                 <img 
                   src={post.image} 
@@ -130,14 +119,11 @@ export default function Blog() {
                   <span className="bg-cyan-50 text-cyan-700 text-xs font-bold px-2.5 py-1 rounded-full uppercase tracking-wide">
                     {post.category}
                   </span>
-                  <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5" /> {post.readTime}
-                  </span>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-3 group-hover:text-cyan-600 transition-colors line-clamp-2">
+                <h3 className="text-xl font-bold text-slate-900 mb-3 transition-colors">
                   {post.title}
                 </h3>
-                <p className="text-slate-600 text-sm leading-relaxed mb-6 flex-grow line-clamp-3">
+                <p className="text-slate-600 text-sm leading-relaxed mb-6 flex-grow">
                   {post.excerpt}
                 </p>
                 <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-auto">
@@ -147,9 +133,9 @@ export default function Blog() {
                     </div>
                     {post.author}
                   </div>
-                  <button className="text-cyan-600 hover:text-cyan-700 font-bold text-sm flex items-center gap-1 transition-colors bg-transparent border-none cursor-pointer p-0">
-                    Read <ArrowRight className="w-4 h-4" />
-                  </button>
+                  <span className="text-xs text-slate-400 font-medium flex items-center gap-1">
+                    <Calendar className="w-3.5 h-3.5" /> {post.date}
+                  </span>
                 </div>
               </div>
             </article>

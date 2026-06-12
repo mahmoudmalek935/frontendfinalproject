@@ -1,5 +1,4 @@
-
-import { useParams, Link } from "react-router-dom"
+import { useParams, Link, useNavigate } from "react-router-dom"
 import {
     ShieldCheck,
     MapPin,
@@ -12,6 +11,7 @@ import {
     CheckCircle2,
     Wallet,
     BadgeCheck,
+    Edit 
 } from "lucide-react"
 
 const skills = [
@@ -53,15 +53,16 @@ function Stars({ count = 5 }) {
 }
 
 export default function ProviderProfile() {
-    // بنجيب اسم الصنايعي من اللينك (لو حابين نستخدمه بعدين عشان نجيب بياناته من الداتا بيز)
     const { name } = useParams();
+    const navigate = useNavigate();
+    const displayName = name ? name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : "Mostafa Adel";
 
-    // تنسيق الاسم عشان يظهر بشكل حلو لو جي من اللينك
-    const displayName = name ? name.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : "Karim Hassan";
+    // 🔴 اللوجيك الديناميكي: بنقرا نوع الحساب من المتصفح
+    const userRole = localStorage.getItem("userRole");
+    const isMyProfile = userRole === "provider"; 
 
     return (
-        <div className="py-8 bg-slate-100 text-slate-900">
-            {/* Banner + Profile Header */}
+        <div className="py-8 bg-slate-100 text-slate-900 min-h-screen">
             <section className="bg-white shadow-sm max-w-6xl mx-auto rounded-2xl overflow-hidden mb-8 border border-slate-200">
                 <div className="relative h-48 sm:h-64 w-full overflow-hidden bg-slate-200">
                     <img
@@ -74,6 +75,7 @@ export default function ProviderProfile() {
 
                 <div className="px-6 pb-8">
                     <div className="flex flex-col sm:flex-row sm:items-end gap-6">
+                        {/* 🔴 رجعنا الصورة زي الأول بالظبط 🔴 */}
                         <img
                             src="/images/provider-karim.png"
                             alt={displayName}
@@ -110,12 +112,9 @@ export default function ProviderProfile() {
                 </div>
             </section>
 
-            {/* Two-column content */}
             <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-0">
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    {/* Main column */}
                     <div className="lg:col-span-2 flex flex-col gap-6">
-                        {/* About */}
                         <article className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                             <h2 className="text-lg font-bold text-slate-900">About Me</h2>
                             <p className="mt-3 text-slate-600 leading-relaxed">
@@ -127,7 +126,6 @@ export default function ProviderProfile() {
                             </p>
                         </article>
 
-                        {/* Skills */}
                         <article className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                             <h2 className="text-lg font-bold text-slate-900">Skills &amp; Expertise</h2>
                             <div className="mt-4 flex flex-wrap gap-2.5">
@@ -143,15 +141,11 @@ export default function ProviderProfile() {
                             </div>
                         </article>
 
-                        {/* Portfolio */}
                         <article className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                             <h2 className="text-lg font-bold text-slate-900">Portfolio / Previous Work</h2>
                             <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {portfolio.map((item) => (
-                                    <div
-                                        key={item.src}
-                                        className="aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
-                                    >
+                                    <div key={item.src} className="aspect-square overflow-hidden rounded-xl border border-slate-200 bg-slate-100">
                                         <img
                                             src={item.src}
                                             alt={item.alt}
@@ -163,7 +157,6 @@ export default function ProviderProfile() {
                             </div>
                         </article>
 
-                        {/* Reviews */}
                         <article className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                             <h2 className="text-lg font-bold text-slate-900">Customer Reviews</h2>
                             <div className="mt-4 flex flex-col gap-5">
@@ -188,7 +181,6 @@ export default function ProviderProfile() {
                         </article>
                     </div>
 
-                    {/* Sidebar */}
                     <aside className="lg:col-span-1">
                         <div className="sticky top-24 bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
                             <div className="flex items-baseline justify-between">
@@ -198,16 +190,27 @@ export default function ProviderProfile() {
                                 </span>
                             </div>
 
-                            <Link to="/checkout" className="block w-full decoration-none">
+                            {/* 🔴 هنا الزرار بيتغير حسب نوع الحساب 🔴 */}
+                            {isMyProfile ? (
                                 <button
                                     type="button"
-                                    className="bg-cyan-600 hover:bg-cyan-700 text-white w-full py-3 rounded-xl font-bold text-lg mb-4 mt-5 transition-colors border-none cursor-pointer shadow-sm"
+                                    onClick={() => navigate('/provider/edit')}
+                                    className="flex items-center justify-center gap-2 bg-white border-2 border-cyan-600 text-cyan-600 hover:bg-cyan-50 w-full py-3 rounded-xl font-bold text-lg mb-4 mt-5 transition-colors cursor-pointer shadow-sm"
                                 >
-                                    Request Service
+                                    <Edit className="w-5 h-5" /> Edit Profile
                                 </button>
-                            </Link>
+                            ) : (
+                                <Link to="/checkout" className="block w-full decoration-none">
+                                    <button
+                                        type="button"
+                                        className="bg-cyan-600 hover:bg-cyan-700 text-white w-full py-3 rounded-xl font-bold text-lg mb-4 mt-5 transition-colors border-none cursor-pointer shadow-sm"
+                                    >
+                                        Request Service
+                                    </button>
+                                </Link>
+                            )}
 
-                            <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3">
+                            <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3 mt-2">
                                 <span className="relative flex h-2.5 w-2.5">
                                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
                                     <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
@@ -233,9 +236,7 @@ export default function ProviderProfile() {
                                 <div className="flex items-start gap-3">
                                     <CheckCircle2 className="w-5 h-5 text-cyan-600 shrink-0 mt-0.5" />
                                     <div>
-                                        <p className="text-sm font-semibold text-slate-900">
-                                            Verified &amp; checked
-                                        </p>
+                                        <p className="text-sm font-semibold text-slate-900">Verified &amp; checked</p>
                                         <p className="text-xs text-slate-500">Identity confirmed by Baytak.</p>
                                     </div>
                                 </div>
