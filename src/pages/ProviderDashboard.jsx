@@ -14,7 +14,8 @@ import {
   Star,
   Edit,
   ClipboardList,
-  CheckCircle2
+  CheckCircle2,
+  PlayCircle
 } from "lucide-react"
 
 const initialRequests = [
@@ -43,7 +44,7 @@ const initialRequests = [
 ]
 
 // داتا وهمية لسجل الشغل (History)
-const completedJobs = [
+const initialCompletedJobs = [
   {
     id: 101,
     customer: "Ahmed Tarek",
@@ -60,35 +61,59 @@ const completedJobs = [
     amount: "300 EGP",
     rating: 4,
   },
-  {
-    id: 103,
-    customer: "Mohamed Ali",
-    service: "Panel Upgrades",
-    date: "28 May 2026",
-    amount: "1,200 EGP",
-    rating: 5,
-  }
 ]
 
 export default function ProviderDashboard() {
+  // 🔴 States جديدة عشان الحركة تبقى ديناميكية 🔴
   const [requests, setRequests] = useState(initialRequests)
-  const [activeJobs, setActiveJobs] = useState(5)
-  // متغير لتحديد التاب اللي مفتوح دلوقتي
+  const [activeJobs, setActiveJobs] = useState([]) // الشغلانات النشطة
+  const [history, setHistory] = useState(initialCompletedJobs) // السجل
   const [activeTab, setActiveTab] = useState("requests") 
 
+  // 1. قبول الطلب (بينقله من الجديد للنشط)
   const handleAccept = (id) => {
-    setRequests((prev) => prev.filter((r) => r.id !== id))
-    setActiveJobs((n) => n + 1)
+    const jobToAccept = requests.find((r) => r.id === id);
+    if (jobToAccept) {
+      setActiveJobs((prev) => [...prev, jobToAccept]);
+      setRequests((prev) => prev.filter((r) => r.id !== id));
+      setActiveTab("active"); // ينقله تلقائي لتاب الشغل النشط
+    }
   }
 
+  // 2. رفض الطلب الجديد
   const handleDecline = (id) => {
     setRequests((prev) => prev.filter((r) => r.id !== id))
+  }
+
+  // 3. إنهاء الشغلانة النشطة (بينقلها للسجل)
+  const handleCompleteJob = (id) => {
+    const jobToComplete = activeJobs.find((j) => j.id === id);
+    if (jobToComplete) {
+      const newHistoryItem = {
+        id: jobToComplete.id,
+        customer: jobToComplete.customer,
+        service: jobToComplete.service,
+        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        amount: "Pending", // السعر هيتحدد لاحقاً
+        rating: 0, // لسه متقيمش
+      };
+      setHistory((prev) => [newHistoryItem, ...prev]);
+      setActiveJobs((prev) => prev.filter((j) => j.id !== id));
+      setActiveTab("history"); // ينقله تلقائي للسجل
+    }
+  }
+
+  // 4. إلغاء شغلانة نشطة
+  const handleCancelActiveJob = (id) => {
+    if(window.confirm("Are you sure you want to cancel this active job? The customer will be notified.")){
+        setActiveJobs((prev) => prev.filter((j) => j.id !== id));
+    }
   }
 
   const stats = [
     {
       label: "Active Jobs",
-      value: String(activeJobs),
+      value: String(activeJobs.length), // بيقرا العدد الحقيقي دلوقتي
       icon: Briefcase,
       iconBg: "bg-cyan-100",
       iconColor: "text-cyan-700",
@@ -147,11 +172,11 @@ export default function ProviderDashboard() {
           })}
         </section>
 
-        {/* Tabs Navigation */}
-        <div className="flex gap-2 border-b border-slate-200 mb-6">
+        {/* 🔴 Tabs Navigation (ضفنا التاب التالت) 🔴 */}
+        <div className="flex gap-2 border-b border-slate-200 mb-6 overflow-x-auto pb-1">
           <button
             onClick={() => setActiveTab("requests")}
-            className={`flex items-center gap-2 px-4 py-3 font-bold text-sm border-b-2 transition-colors border-none cursor-pointer bg-transparent ${
+            className={`flex whitespace-nowrap items-center gap-2 px-4 py-3 font-bold text-sm border-b-2 transition-colors border-none cursor-pointer bg-transparent ${
               activeTab === "requests"
                 ? "border-cyan-600 text-cyan-700 border-b-cyan-600 border-solid"
                 : "border-transparent text-slate-500 hover:text-slate-700"
@@ -164,8 +189,22 @@ export default function ProviderDashboard() {
             )}
           </button>
           <button
+            onClick={() => setActiveTab("active")}
+            className={`flex whitespace-nowrap items-center gap-2 px-4 py-3 font-bold text-sm border-b-2 transition-colors border-none cursor-pointer bg-transparent ${
+              activeTab === "active"
+                ? "border-cyan-600 text-cyan-700 border-b-cyan-600 border-solid"
+                : "border-transparent text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <PlayCircle className="w-4 h-4" />
+            Active Jobs
+            {activeJobs.length > 0 && (
+              <span className="bg-cyan-100 text-cyan-700 py-0.5 px-2 rounded-full text-xs ml-1">{activeJobs.length}</span>
+            )}
+          </button>
+          <button
             onClick={() => setActiveTab("history")}
-            className={`flex items-center gap-2 px-4 py-3 font-bold text-sm border-b-2 transition-colors border-none cursor-pointer bg-transparent ${
+            className={`flex whitespace-nowrap items-center gap-2 px-4 py-3 font-bold text-sm border-b-2 transition-colors border-none cursor-pointer bg-transparent ${
               activeTab === "history"
                 ? "border-cyan-600 text-cyan-700 border-b-cyan-600 border-solid"
                 : "border-transparent text-slate-500 hover:text-slate-700"
@@ -178,7 +217,7 @@ export default function ProviderDashboard() {
 
         {/* Main Content Area based on Active Tab */}
         
-        {/* TAB 1: NEW REQUESTS */}
+        {/* ---------------- TAB 1: NEW REQUESTS ---------------- */}
         {activeTab === "requests" && (
           <section className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {requests.length === 0 ? (
@@ -255,7 +294,73 @@ export default function ProviderDashboard() {
           </section>
         )}
 
-        {/* TAB 2: JOB HISTORY */}
+        {/* ---------------- TAB 2: ACTIVE JOBS (التاب الجديد) ---------------- */}
+        {activeTab === "active" && (
+          <section className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+            {activeJobs.length === 0 ? (
+              <div className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-white px-6 py-16 text-center">
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-50">
+                  <Briefcase className="h-8 w-8 text-cyan-600" aria-hidden="true" />
+                </div>
+                <h2 className="text-xl font-bold text-slate-900">No Active Jobs</h2>
+                <p className="mt-2 text-sm text-slate-500 font-medium">Accept a request to start working on a job.</p>
+              </div>
+            ) : (
+              activeJobs.map((job) => (
+                <article key={job.id} className="overflow-hidden rounded-2xl border border-cyan-200 bg-white shadow-sm transition-shadow hover:shadow-md ring-1 ring-cyan-600/5">
+                  <div className="flex items-center justify-between gap-3 border-b border-cyan-100 bg-cyan-50 px-6 py-3.5">
+                    <span className="inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold bg-cyan-100 text-cyan-700">
+                      <PlayCircle className="w-3.5 h-3.5" /> In Progress
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold text-cyan-700">
+                      <Calendar className="h-4 w-4" /> {job.date}
+                    </span>
+                  </div>
+
+                  <div className="px-6 py-5">
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div className="flex items-center gap-4">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-600 text-lg font-bold text-white shadow-sm">
+                          {job.customer.split(" ").map((n) => n[0]).join("")}
+                        </div>
+                        <div>
+                          <p className="flex items-center gap-1.5 text-lg font-bold text-slate-900">
+                            <User className="h-4 w-4 text-slate-400" /> {job.customer}
+                          </p>
+                          <p className="flex items-center gap-1.5 text-sm font-medium text-slate-500 mt-1">
+                            <MapPin className="h-4 w-4 text-slate-400" /> {job.district}, {job.city}
+                          </p>
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 border border-slate-200 px-3.5 py-1.5 text-sm font-bold text-slate-700">
+                        <Wrench className="h-4 w-4 text-cyan-600" /> {job.service}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row bg-slate-50">
+                    <button
+                      type="button"
+                      onClick={() => handleCompleteJob(job.id)}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-green-700 border-none cursor-pointer shadow-sm"
+                    >
+                      <CheckCircle2 className="h-5 w-5" /> Mark as Completed
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleCancelActiveJob(job.id)}
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:border-slate-300 cursor-pointer"
+                    >
+                      <X className="h-5 w-5" /> Cancel Job
+                    </button>
+                  </div>
+                </article>
+              ))
+            )}
+          </section>
+        )}
+
+        {/* ---------------- TAB 3: JOB HISTORY ---------------- */}
         {activeTab === "history" && (
           <section className="animate-in fade-in slide-in-from-bottom-2 duration-300">
             <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -265,35 +370,43 @@ export default function ProviderDashboard() {
               </div>
               
               <div className="divide-y divide-slate-100">
-                {completedJobs.map((job) => (
-                  <div key={job.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
-                        <CheckCircle2 className="w-6 h-6" />
-                      </div>
-                      <div>
-                        <h3 className="text-base font-bold text-slate-900">{job.service}</h3>
-                        <p className="text-sm font-medium text-slate-500 flex items-center gap-2 mt-1">
-                          <User className="w-4 h-4" /> {job.customer}
-                          <span className="text-slate-300">|</span>
-                          <Calendar className="w-4 h-4" /> {job.date}
-                        </p>
-                      </div>
+                {history.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500 font-medium">No completed jobs yet.</div>
+                ) : (
+                    history.map((job) => (
+                    <div key={job.id} className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-slate-50 transition-colors">
+                        <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full bg-green-100 text-green-700 flex items-center justify-center">
+                            <CheckCircle2 className="w-6 h-6" />
+                        </div>
+                        <div>
+                            <h3 className="text-base font-bold text-slate-900">{job.service}</h3>
+                            <p className="text-sm font-medium text-slate-500 flex items-center gap-2 mt-1">
+                            <User className="w-4 h-4" /> {job.customer}
+                            <span className="text-slate-300">|</span>
+                            <Calendar className="w-4 h-4" /> {job.date}
+                            </p>
+                        </div>
+                        </div>
+                        
+                        <div className="flex flex-col sm:items-end gap-2">
+                        <span className="text-lg font-extrabold text-slate-900">{job.amount}</span>
+                        <div className="flex items-center gap-0.5">
+                            {job.rating > 0 ? (
+                                Array.from({ length: 5 }).map((_, i) => (
+                                <Star 
+                                    key={i} 
+                                    className={`w-4 h-4 ${i < job.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200 fill-slate-200'}`} 
+                                />
+                                ))
+                            ) : (
+                                <span className="text-xs text-slate-400 font-medium">Pending Rating</span>
+                            )}
+                        </div>
+                        </div>
                     </div>
-                    
-                    <div className="flex flex-col sm:items-end gap-2">
-                      <span className="text-lg font-extrabold text-slate-900">{job.amount}</span>
-                      <div className="flex items-center gap-0.5">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <Star 
-                            key={i} 
-                            className={`w-4 h-4 ${i < job.rating ? 'text-amber-400 fill-amber-400' : 'text-slate-200 fill-slate-200'}`} 
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                    ))
+                )}
               </div>
             </div>
           </section>
