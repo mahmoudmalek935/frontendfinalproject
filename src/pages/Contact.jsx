@@ -1,19 +1,42 @@
 import { useState } from "react"
-import { MapPin, Mail, Phone, Send } from "lucide-react"
+import { MapPin, Mail, Phone, Send, Loader2 } from "lucide-react"
 
 export default function Contact() {
   const [form, setForm] = useState({ name: "", email: "", subject: "", message: "" })
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false) // 🔴 حالة التحميل
 
   const handleChange = (e) => {
     setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }))
   }
 
-  const handleSubmit = (e) => {
+  // 🔴 ربطنا الدالة بالباك إند 🔴
+  const handleSubmit = async (e) => {
     e.preventDefault()
-    setSubmitted(true)
-    setForm({ name: "", email: "", subject: "", message: "" })
-    setTimeout(() => setSubmitted(false), 4000)
+    setIsSubmitting(true)
+
+    try {
+      const response = await fetch('https://localhost:7088/api/ContactMessages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(form)
+      })
+
+      if (response.ok) {
+        setSubmitted(true)
+        setForm({ name: "", email: "", subject: "", message: "" })
+        setTimeout(() => setSubmitted(false), 4000)
+      } else {
+        alert("Failed to send message. Please try again.")
+      }
+    } catch (error) {
+      console.error("Error sending message:", error)
+      alert("An error occurred. Please check your connection.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const contactDetails = [
@@ -25,7 +48,7 @@ export default function Contact() {
     {
       icon: Mail,
       title: "Email",
-      value: "support@baytak.com",
+      value: "support@baytack.com",
       href: "mailto:support@baytak.com",
     },
     {
@@ -41,7 +64,7 @@ export default function Contact() {
       <div className="mx-auto max-w-6xl">
         {/* Page Header */}
         <header className="mx-auto max-w-2xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-wider text-amber-500">Baytak</p>
+          <p className="text-sm font-semibold uppercase tracking-wider text-amber-500">Baytack</p>
           <h1 className="mt-2 text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
             Get in Touch
           </h1>
@@ -138,10 +161,15 @@ export default function Contact() {
 
                 <button
                   type="submit"
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 py-3 font-semibold text-white hover:bg-cyan-700 border-none cursor-pointer"
+                  disabled={isSubmitting}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-600 py-3 font-semibold text-white hover:bg-cyan-700 border-none cursor-pointer disabled:opacity-70"
                 >
-                  <Send className="h-5 w-5" />
-                  Send Message
+                  {isSubmitting ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Send className="h-5 w-5" />
+                  )}
+                  {isSubmitting ? "Sending..." : "Send Message"}
                 </button>
 
                 {submitted && (

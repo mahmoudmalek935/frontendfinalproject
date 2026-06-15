@@ -1,75 +1,45 @@
 import { useState, useEffect } from "react"
 import { Link, useSearchParams } from "react-router-dom"
-import { Search, ShieldCheck, Star, MapPin, SlidersHorizontal } from "lucide-react"
+import { Search, ShieldCheck, Star, MapPin, SlidersHorizontal, Loader2 } from "lucide-react"
 
 const CATEGORIES = ["Plumbing", "Electrical", "Cleaning", "Painting", "Carpentry", "AC Repair"]
 const LOCATIONS = ["Alexandria", "Cairo", "Giza"]
 
-const PROVIDERS = [
-  {
-    name: "Ahmed Hassan",
-    specialty: "Plumbing Specialist",
-    rating: 4.9,
-    reviews: 214,
-    location: "Cairo",
-    photo: "/providers/ahmed.png",
-  },
-  {
-    name: "Sara Ibrahim",
-    specialty: "Home Cleaning Expert",
-    rating: 4.8,
-    reviews: 187,
-    location: "Giza",
-    photo: "/providers/sara.png",
-  },
-  {
-    name: "Mostafa Adel",
-    specialty: "Electrical Engineer",
-    rating: 5.0,
-    reviews: 302,
-    location: "Alexandria",
-    photo: "/providers/mostafa.png",
-  },
-  {
-    name: "Khaled Nabil",
-    specialty: "Professional Painter",
-    rating: 4.7,
-    reviews: 98,
-    location: "Cairo",
-    photo: "/providers/khaled.png",
-  },
-  {
-    name: "Laila Mansour",
-    specialty: "Carpentry & Woodwork",
-    rating: 4.9,
-    reviews: 156,
-    location: "Giza",
-    photo: "/providers/laila.png",
-  },
-  {
-    name: "Omar Farouk",
-    specialty: "AC Repair Technician",
-    rating: 4.8,
-    reviews: 241,
-    location: "Alexandria",
-    photo: "/providers/omar.png",
-  },
-]
-
 export default function Providers() {
-  // قراءة القسم من اللينك
   const [searchParams] = useSearchParams()
   const categoryFromUrl = searchParams.get("category")
 
+  // 🔴 States جديدة لجلب البيانات الحقيقية
+  const [providers, setProviders] = useState([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState("")
+
   const [search, setSearch] = useState("")
-  // تعيين القسم المختار بناءً على اللينك (لو موجود)
   const [selectedCategories, setSelectedCategories] = useState(
     categoryFromUrl ? [categoryFromUrl] : []
   )
   const [selectedLocations, setSelectedLocations] = useState([])
   const [minRating, setMinRating] = useState(null)
 
-  // تحديث الفلتر لو اليوزر داس على لينك تاني وهو جوه الصفحة
+  // 🔴 جلب الصنايعية من الباك إند
+  useEffect(() => {
+    const fetchProviders = async () => {
+      try {
+        const response = await fetch("https://localhost:7088/api/Providers");
+        if (!response.ok) throw new Error("فشل في جلب قائمة الفنيين");
+        
+        const data = await response.json();
+        setProviders(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProviders();
+  }, []);
+
   useEffect(() => {
     if (categoryFromUrl) {
       setSelectedCategories([categoryFromUrl])
@@ -87,31 +57,46 @@ export default function Providers() {
     setMinRating(null)
   }
 
-  const filtered = PROVIDERS.filter((p) => {
+  // 🔴 تطبيق الفلاتر على البيانات الحقيقية
+  const filtered = providers.filter((p) => {
+    const fullName = p.fullName || "";
+    const serviceName = p.serviceName || "";
+    const governorate = p.governorate || "Not specified";
+    const rating = p.rating || 0; // لسه مفيش تقييمات حقيقية في الداتا بيز فبنديها 0
+
     const matchesSearch =
       search.trim() === "" ||
-      p.name.toLowerCase().includes(search.toLowerCase()) ||
-      p.specialty.toLowerCase().includes(search.toLowerCase())
-    const matchesLocation = selectedLocations.length === 0 || selectedLocations.includes(p.location)
-    const matchesRating = minRating === null || p.rating >= minRating
+      fullName.toLowerCase().includes(search.toLowerCase()) ||
+      serviceName.toLowerCase().includes(search.toLowerCase())
+      
+    const matchesLocation = selectedLocations.length === 0 || selectedLocations.includes(governorate)
+    const matchesRating = minRating === null || rating >= minRating
     const matchesCategory =
       selectedCategories.length === 0 ||
-      selectedCategories.some((c) => p.specialty.toLowerCase().includes(c.toLowerCase().split(" ")[0]))
-    
+      selectedCategories.some((c) => serviceName.toLowerCase().includes(c.toLowerCase().split(" ")[0]))
+
     return matchesSearch && matchesLocation && matchesRating && matchesCategory
   })
 
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+        <Loader2 className="w-10 h-10 animate-spin text-cyan-600" />
+      </div>
+    );
+  }
+
   return (
-    <div className="py-10 bg-slate-100">
+    <div className="py-10 bg-slate-100 min-h-screen">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        {/* Page Header */}
+        
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 text-balance">Find the Right Expert</h1>
           <p className="mt-2 text-slate-600">Browse verified professionals in Egypt.</p>
         </header>
 
         <div className="flex flex-col gap-8 lg:flex-row">
-          {/* Filters Sidebar */}
+          
           <aside className="lg:w-80 lg:flex-shrink-0">
             <div className="rounded-2xl border border-slate-200 bg-white p-6 lg:sticky lg:top-24 shadow-sm">
               <div className="mb-6 flex items-center gap-2">
@@ -207,7 +192,13 @@ export default function Providers() {
               </p>
             </div>
 
-            {filtered.length === 0 ? (
+            {error && (
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-red-600 font-bold mb-4">
+                {error}
+              </div>
+            )}
+
+            {filtered.length === 0 && !error ? (
               <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center">
                 <p className="text-slate-600">No providers match your filters.</p>
                 <button
@@ -221,15 +212,15 @@ export default function Providers() {
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((p) => (
                   <article
-                    key={p.name}
-                    className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg"
+                    key={p.providerId}
+                    className="flex flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-1 hover:shadow-lg relative"
                   >
                     {/* Top row */}
                     <div className="mb-4 flex items-start justify-between">
                       <img
-                        src={p.photo}
-                        alt={`Photo of ${p.name}`}
-                        className="h-16 w-16 rounded-full object-cover border-2 border-slate-100"
+                        src={p.profilePicture ? `https://localhost:7088${p.profilePicture}` : "/images/provider-karim.png"}
+                        alt={`Photo of ${p.fullName}`}
+                        className="h-16 w-16 rounded-full object-cover border-2 border-slate-100 bg-slate-50"
                         onError={(e) => { e.target.src = 'https://via.placeholder.com/150?text=Pro' }}
                       />
                       <span className="inline-flex items-center gap-1 rounded-full border border-cyan-200 bg-cyan-50 px-2.5 py-1 text-xs font-medium text-cyan-700">
@@ -239,25 +230,25 @@ export default function Providers() {
                     </div>
 
                     {/* Name + specialty */}
-                    <h3 className="text-xl font-bold text-slate-900">{p.name}</h3>
-                    <p className="mt-0.5 text-sm font-medium text-cyan-700">{p.specialty}</p>
+                    <h3 className="text-xl font-bold text-slate-900">{p.fullName}</h3>
+                    <p className="mt-0.5 text-sm font-medium text-cyan-700">{p.serviceName}</p>
 
-                    {/* Rating */}
+                    {/* Rating (مؤقت لحد ما نبني جدول التقييمات) */}
                     <div className="mt-3 flex items-center gap-1.5 text-sm">
-                      <Star className="h-4 w-4 fill-amber-500 text-amber-500" />
-                      <span className="font-semibold text-slate-900">{p.rating}</span>
-                      <span className="text-slate-500">({p.reviews} reviews)</span>
+                      <Star className="h-4 w-4 fill-amber-500 text-amber-500 opacity-50" />
+                      <span className="font-semibold text-slate-900">0.0</span>
+                      <span className="text-slate-500">(0 reviews)</span>
                     </div>
 
                     {/* Location */}
                     <div className="mt-2 flex items-center gap-1.5 text-sm text-slate-600">
                       <MapPin className="h-4 w-4 text-slate-400" />
-                      {p.location}
+                      {p.governorate || "Not specified"}
                     </div>
 
                     {/* View Profile */}
-                    <Link 
-                      to={`/provider/${p.name.toLowerCase().replace(' ', '-')}`} 
+                    <Link
+                      to={`/provider/${p.providerId}`}
                       className="mt-auto pt-4 decoration-none"
                     >
                       <button className="w-full rounded-lg bg-cyan-600 py-2.5 font-semibold text-white transition-colors hover:bg-cyan-700 border-none cursor-pointer shadow-sm">

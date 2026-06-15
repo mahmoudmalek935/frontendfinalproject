@@ -1,28 +1,42 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Camera, CreditCard, Phone, FileText, BadgeCheck } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Camera, CreditCard, Phone, FileText, BadgeCheck, AlertCircle, CheckCircle } from 'lucide-react'; // 1. ضفنا الأيقونات هنا
 
 // مهارات تفصيلية بدل الأقسام العامة
 const skillsList = [
-  'Pipe Installation', 'Leak Repair', 'Water Heater Setup', 
+  'Pipe Installation', 'Leak Repair', 'Water Heater Setup',
   'Wiring & Panels', 'Lighting Fixes', 'Appliance Repair',
-  'Deep Cleaning', 'Post-Construction Cleaning', 'Furniture Assembly', 
+  'Deep Cleaning', 'Post-Construction Cleaning', 'Furniture Assembly',
   'Door/Window Fixing', 'Interior Painting', 'AC Maintenance'
 ];
 
 export default function ProviderOnboarding() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const userData = location.state;
+
+  useEffect(() => {
+    if (!userData) {
+      alert("Please register first!");
+      navigate('/register');
+    }
+  }, [userData, navigate]);
+
   const [selectedSkills, setSelectedSkills] = useState(new Set());
   const [phoneNumber, setPhoneNumber] = useState('');
   const [nationalIdNumber, setNationalIdNumber] = useState('');
   const [bio, setBio] = useState('');
-  
+
+  // 2. States رسايل النجاح والخطأ
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
   // صور إلزامية
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [idFront, setIdFront] = useState(null);
   const [idBack, setIdBack] = useState(null);
-  
+
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const navigate = useNavigate();
 
   const toggleSkill = (skill) => {
     setSelectedSkills((prev) => {
@@ -36,9 +50,7 @@ export default function ProviderOnboarding() {
   const handleFileChange = (e, setter) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => setter(reader.result);
-      reader.readAsDataURL(file);
+      setter(file); // هنخزن الملف نفسه
     }
   };
 
@@ -52,40 +64,58 @@ export default function ProviderOnboarding() {
     setNationalIdNumber(onlyNums);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // التحقق الصارم من البيانات
-    if (!profilePhoto) return alert("Please upload your Profile Photo.");
-    if (!idFront) return alert("Please upload the Front of your National ID.");
-    if (!idBack) return alert("Please upload the Back of your National ID.");
-    
-    if (nationalIdNumber.length !== 14) {
-      return alert("National ID must be exactly 14 digits.");
-    }
-    
-    if (phoneNumber.length !== 11) {
-      return alert("Phone Number must be exactly 11 digits.");
-    }
+    setErrorMessage(''); // تصفيير الرسايل القديمة
+    setSuccessMessage('');
 
-    if (selectedSkills.size === 0) {
-      return alert("Please select at least one skill.");
+    if (!profilePhoto || !idFront || !idBack) {
+      return setErrorMessage("Please upload all required images."); // 4. استخدمنا الرسالة الشيك
     }
 
     setIsSubmitting(true);
-    
-    // محاكاة الإرسال للسيرفر
-    setTimeout(() => {
+
+    try {
+      const formData = new FormData();
+
+      // إضافة بيانات الـ Register
+      formData.append('FullName', userData.fullName);
+      formData.append('Email', userData.email);
+      formData.append('Password', userData.password);
+      formData.append('Phone', userData.phone);
+      formData.append('Role', 'Provider');
+      formData.append('Governorate', userData.governorate);
+      formData.append('ServiceId', userData.serviceId); // ⚠️ تأكد إنك عدلتها في Register.jsx زي ما اتفقنا
+
+      // بيانات الـ Onboarding
+      formData.append('NationalId', nationalIdNumber);
+      formData.append('WhatsAppNumber', phoneNumber);
+      formData.append('Skills', Array.from(selectedSkills).join(', '));
+      formData.append('Bio', bio);
+
+      // الصور
+      formData.append('ProfileImage', profilePhoto);
+      formData.append('IdFront', idFront);
+      formData.append('IdBack', idBack);
+
+      const response = await fetch('https://localhost:7088/api/auth/register', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) throw new Error(await response.text());
+
+      // 4. رسالة النجاح الشيك وتحويل بعد ثانيتين
+      setSuccessMessage("Profile completed successfully! Redirecting to login...");
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+
+    } catch (error) {
+      setErrorMessage("Error: " + error.message);
+    } finally {
       setIsSubmitting(false);
-      alert("Profile completed successfully! Welcome to Baytak.");
-      
-      // 🔴🔴🔴 التعديل هنا: بنحفظ التوكن في الـ LocalStorage عشان ה-Navbar يحس بيك
-      localStorage.setItem("token", "dummy-test-token-123");
-      localStorage.setItem("userRole", "provider");
-      
-      // 🔴🔴🔴 التعديل هنا: بنستخدم window.location.href عشان الـ Navbar يعمل ريفريش ويظهر زرار ה-Logout
-      window.location.href = '/provider/my-profile';
-    }, 1500);
+    }
   };
 
   return (
@@ -100,15 +130,32 @@ export default function ProviderOnboarding() {
       </div>
 
       <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        
+        {/* 3. 🔴 رسالة الخطأ الشيك 🔴 */}
+        {errorMessage && (
+          <div className="m-6 mb-0 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+            <p className="text-sm font-bold text-red-700">{errorMessage}</p>
+          </div>
+        )}
+
+        {/* 3. 🟢 رسالة النجاح الشيك 🟢 */}
+        {successMessage && (
+          <div className="m-6 mb-0 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
+            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+            <p className="text-sm font-bold text-emerald-700">{successMessage}</p>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit}>
-          
+
           {/* 1. Verification Documents Section */}
           <div className="px-6 py-8 sm:px-10">
             <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
               <span className="flex items-center justify-center w-8 h-8 rounded-full bg-cyan-100 text-cyan-700 text-sm">1</span>
               Identity Verification <span className="text-red-500 text-sm">*Required</span>
             </h2>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Profile Photo */}
               <div>
@@ -118,7 +165,7 @@ export default function ProviderOnboarding() {
                   <label htmlFor="profile-photo" className="block border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center cursor-pointer hover:border-cyan-500 hover:bg-cyan-50 transition-all h-48 flex flex-col justify-center">
                     {profilePhoto ? (
                       <div className="flex flex-col items-center">
-                        <img src={profilePhoto} alt="Profile" className="w-20 h-20 rounded-full object-cover mb-2 shadow-sm" />
+                        <img src={URL.createObjectURL(profilePhoto)} alt="Profile" className="w-20 h-20 rounded-full object-cover mb-2 shadow-sm" />
                         <span className="text-xs font-semibold text-cyan-600">Change Photo</span>
                       </div>
                     ) : (
@@ -139,7 +186,7 @@ export default function ProviderOnboarding() {
                   <label htmlFor="id-front" className="block border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center cursor-pointer hover:border-amber-500 hover:bg-amber-50 transition-all h-48 flex flex-col justify-center">
                     {idFront ? (
                       <div className="flex flex-col items-center">
-                        <img src={idFront} alt="ID Front" className="w-full h-20 object-cover rounded-lg mb-2 shadow-sm" />
+                        <img src={URL.createObjectURL(idFront)} alt="ID Front" className="w-full h-20 object-cover rounded-lg mb-2 shadow-sm" />
                         <span className="text-xs font-semibold text-amber-600">Change Front</span>
                       </div>
                     ) : (
@@ -160,7 +207,7 @@ export default function ProviderOnboarding() {
                   <label htmlFor="id-back" className="block border-2 border-dashed border-slate-300 rounded-2xl p-6 text-center cursor-pointer hover:border-amber-500 hover:bg-amber-50 transition-all h-48 flex flex-col justify-center">
                     {idBack ? (
                       <div className="flex flex-col items-center">
-                        <img src={idBack} alt="ID Back" className="w-full h-20 object-cover rounded-lg mb-2 shadow-sm" />
+                        <img src={URL.createObjectURL(idBack)} alt="ID Back" className="w-full h-20 object-cover rounded-lg mb-2 shadow-sm" />
                         <span className="text-xs font-semibold text-amber-600">Change Back</span>
                       </div>
                     ) : (
@@ -173,7 +220,7 @@ export default function ProviderOnboarding() {
                 </div>
               </div>
             </div>
-            
+
             {/* National ID Text Input */}
             <div className="mt-6">
               <label className="block text-sm font-bold text-slate-700 mb-2">National ID Number (14 Digits)</label>
@@ -256,11 +303,10 @@ export default function ProviderOnboarding() {
                   key={skill}
                   type="button"
                   onClick={() => toggleSkill(skill)}
-                  className={`px-4 py-2 rounded-xl font-bold text-sm transition-all border cursor-pointer ${
-                    selectedSkills.has(skill)
+                  className={`px-4 py-2 rounded-xl font-bold text-sm transition-all border cursor-pointer ${selectedSkills.has(skill)
                       ? 'bg-cyan-50 border-cyan-500 text-cyan-700 shadow-sm'
                       : 'bg-white border-slate-200 text-slate-600 hover:border-cyan-300'
-                  }`}
+                    }`}
                 >
                   {skill}
                 </button>
@@ -274,10 +320,10 @@ export default function ProviderOnboarding() {
           <div className="px-6 py-6 sm:px-10 bg-slate-50 flex justify-end">
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-10 py-3.5 bg-cyan-600 text-white font-bold rounded-xl hover:bg-cyan-700 transition-colors shadow-md border-none cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed text-lg"
+              disabled={isSubmitting} // منع الضغط المتكرر
+              className="w-full bg-cyan-600 text-white py-3 rounded-xl font-bold hover:bg-cyan-700 transition disabled:opacity-70 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? 'Verifying...' : 'Save & View Profile'}
+              {isSubmitting ? 'Saving...' : 'Complete Profile'}
             </button>
           </div>
         </form>

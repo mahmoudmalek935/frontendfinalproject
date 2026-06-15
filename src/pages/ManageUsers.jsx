@@ -4,41 +4,113 @@ import {
   Search,
   ChevronDown,
   Download,
-  Pencil,
   Trash2,
   ChevronLeft,
   ChevronRight,
   Users,
-  ArrowLeft
+  ArrowLeft,
+  CheckCircle2,
+  AlertCircle,
+  X,
+  AlertTriangle,
+  Ban
 } from "lucide-react"
-
-// زودنا الداتا شوية عشان نجرب تقليب الصفحات
-const initialUsers = [
-  { id: 1, name: "Sara Al-Mutairi", email: "sara.almutairi@email.com", avatar: "SA", role: "Customer", joinDate: "Jan 12, 2026", status: "Active" },
-  { id: 2, name: "Khalid Hassan", email: "khalid.hassan@email.com", avatar: "KH", role: "Provider", joinDate: "Feb 03, 2026", status: "Active" },
-  { id: 3, name: "Layla Ibrahim", email: "layla.ibrahim@email.com", avatar: "LI", role: "Customer", joinDate: "Feb 28, 2026", status: "Suspended" },
-  { id: 4, name: "Omar Abdullah", email: "omar.abdullah@email.com", avatar: "OA", role: "Provider", joinDate: "Mar 15, 2026", status: "Active" },
-  { id: 5, name: "Noura Saleh", email: "noura.saleh@email.com", avatar: "NS", role: "Customer", joinDate: "Apr 02, 2026", status: "Suspended" },
-  { id: 6, name: "Ali Mahmoud", email: "ali.m@email.com", avatar: "AM", role: "Provider", joinDate: "May 10, 2026", status: "Active" },
-  { id: 7, name: "Hoda Ali", email: "hoda.ali@email.com", avatar: "HA", role: "Customer", joinDate: "May 15, 2026", status: "Active" },
-]
 
 const ROLE_FILTERS = ["All Roles", "Customer", "Provider"]
 
 export default function ManageUsers() {
   const navigate = useNavigate();
   
-  // 🔴 اللوجيك الجديد (State) 🔴
-  const [users, setUsers] = useState(initialUsers) // الداتا بقت متغيرة عشان نقدر نمسح منها
+  const [users, setUsers] = useState([]) 
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState(null)
+  
   const [search, setSearch] = useState("")
   const [roleFilter, setRoleFilter] = useState("All Roles")
   const [filterOpen, setFilterOpen] = useState(false)
   
-  // متغيرات الصفحات (Pagination)
   const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 4 // هنعرض 4 في كل صفحة
+  const itemsPerPage = 6 
 
-  // فلترة الداتا
+  // 🔴 States للمودال الشيك بدل الـ Alerts
+  const [confirmModal, setConfirmModal] = useState({ isOpen: false, userId: null, userName: "" })
+  const [feedbackModal, setFeedbackModal] = useState({ isOpen: false, type: "", title: "", message: "" })
+
+  const showFeedback = (type, title, message) => {
+    setFeedbackModal({ isOpen: true, type, title, message })
+  }
+
+  // 1. جلب ودمج بيانات المستخدمين والصنايعية
+  useEffect(() => {
+    const fetchUsersAndProviders = async () => {
+      setIsLoading(true);
+      setError(null);
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      try {
+        const usersRes = await fetch("https://localhost:7088/api/Auth", { 
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (!usersRes.ok) throw new Error("Failed to fetch users.");
+        const usersData = await usersRes.json();
+
+        const provRes = await fetch("https://localhost:7088/api/Providers/admin/all", {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        
+        let provData = [];
+        if (provRes.ok) {
+          provData = await provRes.json();
+        }
+
+        const formattedUsers = usersData.map(u => {
+          let currentStatus = "Active";
+          let providerId = null;
+
+          if (u.role && u.role.toLowerCase() === "provider") {
+            const matchedProvider = provData.find(p => p.userId === u.id);
+            if (matchedProvider) {
+              // 🔴 خلينا الحالة إما Active أو Inactive
+              currentStatus = matchedProvider.isActive ? "Active" : "Inactive";
+              providerId = matchedProvider.providerId;
+            } else {
+              currentStatus = "Profile Incomplete";
+            }
+          }
+
+          return {
+            id: u.id,
+            providerId: providerId,
+            name: u.fullName || "Unknown",
+            email: u.email,
+            avatar: u.fullName ? u.fullName.substring(0, 2).toUpperCase() : "U",
+            role: u.role === "admin" ? "Admin" : u.role?.toLowerCase() === "provider" ? "Provider" : "Customer",
+            joinDate: new Date(u.createdAt || Date.now()).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            status: currentStatus
+          };
+        });
+
+        // ترتيب الصنايعية اللي محتاجين تفعيل يظهروا الأول
+        formattedUsers.sort((a, b) => (a.status === "Inactive" ? -1 : 1));
+
+        setUsers(formattedUsers);
+      } catch (err) {
+        console.error(err);
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchUsersAndProviders();
+  }, [navigate]);
+
   const filtered = users.filter((u) => {
     const matchesSearch =
       u.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -47,28 +119,79 @@ export default function ManageUsers() {
     return matchesSearch && matchesRole
   })
 
-  // لو عملنا سيرش أو فلتر، نرجع للصفحة الأولى أوتوماتيك
   useEffect(() => {
     setCurrentPage(1)
   }, [search, roleFilter])
 
-  // حسابات الصفحات
   const totalPages = Math.ceil(filtered.length / itemsPerPage)
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedUsers = filtered.slice(startIndex, startIndex + itemsPerPage)
 
-  // فنكشن المسح
-  const handleDelete = (id, name) => {
-    if (window.confirm(`Are you sure you want to delete ${name}?`)) {
-      setUsers((prev) => prev.filter((user) => user.id !== id))
+  // 2. زرار التفعيل / الإلغاء (يعمل في صمت بدون إزعاج)
+  const handleToggleStatus = async (providerId, currentStatus) => {
+    const token = localStorage.getItem("token");
+    const isActivating = currentStatus === "Inactive";
+
+    // 🔴 تحديث الواجهة فوراً (Optimistic UI) لسرعة الاستجابة
+    setUsers(prev => prev.map(u => 
+        u.providerId === providerId ? { ...u, status: isActivating ? "Active" : "Inactive" } : u
+    ));
+
+    try {
+      if (isActivating) {
+        // تفعيل
+        const res = await fetch(`https://localhost:7088/api/Providers/activate/${providerId}`, {
+          method: 'PUT',
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error("Failed to activate");
+      } else {
+        // تعطيل (بناءً على مسار مسح الصنايعي اللي بيخليه Inactive)
+        const res = await fetch(`https://localhost:7088/api/Providers/${providerId}`, {
+          method: 'DELETE',
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error("Failed to deactivate");
+      }
+    } catch (error) {
+      console.error("Toggle error:", error);
+      // لو حصل خطأ في السيرفر، بنرجع حالة الزرار زي ما كانت ونظهرله خطأ
+      setUsers(prev => prev.map(u => 
+        u.providerId === providerId ? { ...u, status: currentStatus } : u
+      ));
+      showFeedback("error", "Action Failed", "Could not change the provider's status.");
     }
   }
 
-  const handleEdit = (name) => {
-    alert(`Editing user: ${name} (Will open edit modal in production)`);
+  // 3. دوال الحذف باستخدام الـ Modal
+  const initiateDelete = (id, name) => {
+    setConfirmModal({ isOpen: true, userId: id, userName: name });
   }
 
-  // فنكشن تصدير البيانات (Export to CSV)
+  const executeDelete = async () => {
+    const { userId, userName } = confirmModal;
+    setConfirmModal({ isOpen: false, userId: null, userName: "" }); // قفل المودال فوراً
+    
+    const token = localStorage.getItem("token");
+    try {
+      const response = await fetch(`https://localhost:7088/api/Auth/${userId}`, {
+        method: 'DELETE',
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        setUsers((prev) => prev.filter((user) => user.id !== userId));
+        showFeedback("success", "User Deleted", `${userName} has been removed successfully.`);
+      } else {
+        showFeedback("error", "Deletion Failed", "Failed to delete the user.");
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      showFeedback("error", "Network Error", "An error occurred while deleting.");
+    }
+  }
+
+  // 4. دالة الإكسبورت
   const handleExport = () => {
     const headers = "ID,Name,Email,Role,Status,Join Date\n";
     const csvData = users.map(u => `${u.id},${u.name},${u.email},${u.role},${u.status},${u.joinDate}`).join("\n");
@@ -83,7 +206,7 @@ export default function ManageUsers() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10">
+    <main className="min-h-screen bg-slate-50 px-4 py-8 sm:px-6 lg:px-10 relative">
       <div className="mx-auto max-w-6xl">
         
         <button 
@@ -104,7 +227,7 @@ export default function ManageUsers() {
               <p className="text-sm text-slate-500 font-medium">Manage Baytak customers and providers</p>
             </div>
           </div>
-          {/* 🔴 زرار التصدير شغال 🔴 */}
+          
           <button 
             onClick={handleExport}
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-cyan-700 border-none cursor-pointer"
@@ -113,6 +236,13 @@ export default function ManageUsers() {
             Export Data
           </button>
         </div>
+
+        {error && (
+          <div className="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 flex items-center gap-3 text-red-700">
+            <AlertCircle className="h-5 w-5 shrink-0" />
+            <p className="text-sm font-bold">{error}</p>
+          </div>
+        )}
 
         {/* Top bar (Search & Filter) */}
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -170,14 +300,15 @@ export default function ManageUsers() {
                 </tr>
               </thead>
               <tbody>
-                {paginatedUsers.length === 0 ? (
+                {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-12 text-center text-sm font-medium text-slate-500">
-                      No users found matching your criteria.
-                    </td>
+                    <td colSpan={5} className="px-6 py-12 text-center text-sm font-medium text-slate-500">Loading users...</td>
+                  </tr>
+                ) : paginatedUsers.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-6 py-12 text-center text-sm font-medium text-slate-500">No users found.</td>
                   </tr>
                 ) : (
-                  // 🔴 بنعرض الداتا بتاعة الصفحة الحالية بس 🔴
                   paginatedUsers.map((user) => (
                     <tr key={user.id} className="border-b border-slate-100 transition hover:bg-slate-50/60">
                       <td className="px-6 py-4">
@@ -192,44 +323,56 @@ export default function ManageUsers() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${
-                            user.role === "Provider"
-                              ? "bg-amber-100 text-amber-700"
-                              : "bg-cyan-50 text-cyan-700"
-                          }`}
-                        >
+                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold ${
+                          user.role === "Provider" ? "bg-amber-100 text-amber-700" : user.role === "Admin" ? "bg-purple-100 text-purple-700" : "bg-cyan-50 text-cyan-700"
+                        }`}>
                           {user.role}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm font-medium text-slate-600">{user.joinDate}</td>
                       <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold ${
-                            user.status === "Active"
-                              ? "bg-emerald-50 text-emerald-700"
-                              : "bg-rose-50 text-rose-700"
-                          }`}
-                        >
-                          <span
-                            className={`h-1.5 w-1.5 rounded-full ${
-                              user.status === "Active" ? "bg-emerald-500" : "bg-rose-500"
-                            }`}
-                          />
-                          {user.status}
-                        </span>
+                        {user.status === "Active" && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-emerald-50 text-emerald-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Active
+                          </span>
+                        )}
+                        {user.status === "Inactive" && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-amber-50 text-amber-700">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Inactive
+                          </span>
+                        )}
+                        {user.status === "Profile Incomplete" && (
+                          <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-slate-100 text-slate-600">
+                            <AlertCircle className="w-3.5 h-3.5" /> Incomplete
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
+                          
+                          {/* 🔴 زرار التفعيل والتعطيل (صامت وسريع) 🔴 */}
+                          {user.role === "Provider" && user.providerId && (
+                            <button
+                              onClick={() => handleToggleStatus(user.providerId, user.status)}
+                              className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-bold transition border-none cursor-pointer ${
+                                user.status === "Inactive" 
+                                  ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200" 
+                                  : "bg-amber-100 text-amber-700 hover:bg-amber-200"
+                              }`}
+                            >
+                              {user.status === "Inactive" ? (
+                                <><CheckCircle2 className="w-3.5 h-3.5" /> Activate</>
+                              ) : (
+                                <><Ban className="w-3.5 h-3.5" /> Deactivate</>
+                              )}
+                            </button>
+                          )}
+
+                          {/* زرار الحذف */}
                           <button
-                            onClick={() => handleEdit(user.name)}
-                            className="rounded-lg p-2 text-slate-400 transition hover:bg-cyan-50 hover:text-cyan-600 border-none bg-transparent cursor-pointer"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(user.id, user.name)}
+                            onClick={() => initiateDelete(user.id, user.name)}
                             className="rounded-lg p-2 text-slate-400 transition hover:bg-rose-50 hover:text-rose-600 border-none bg-transparent cursor-pointer"
+                            title="Delete User"
                           >
                             <Trash2 className="h-4 w-4" />
                           </button>
@@ -242,50 +385,107 @@ export default function ManageUsers() {
             </table>
           </div>
 
-          {/* 🔴 Pagination شغال بالكامل 🔴 */}
-          <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row bg-slate-50/50">
-            <p className="text-sm font-medium text-slate-500">
-              Showing <span className="font-bold text-slate-700">{paginatedUsers.length}</span> of{" "}
-              <span className="font-bold text-slate-700">{filtered.length}</span> users
-            </p>
-            
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1">
-                <button 
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  <ChevronLeft className="h-4 w-4" /> Prev
-                </button>
-                
-                {Array.from({ length: totalPages }).map((_, i) => (
+          {/* Pagination */}
+          {!isLoading && filtered.length > 0 && (
+            <div className="flex flex-col items-center justify-between gap-3 border-t border-slate-200 px-6 py-4 sm:flex-row bg-slate-50/50">
+              <p className="text-sm font-medium text-slate-500">
+                Showing <span className="font-bold text-slate-700">{paginatedUsers.length}</span> of <span className="font-bold text-slate-700">{filtered.length}</span> users
+              </p>
+              
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1">
                   <button 
-                    key={i}
-                    onClick={() => setCurrentPage(i + 1)}
-                    className={`h-8 w-8 rounded-lg text-sm font-bold border cursor-pointer ${
-                      currentPage === i + 1 
-                        ? 'bg-cyan-600 text-white border-cyan-600' 
-                        : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
-                    }`}
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-500 transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                   >
-                    {i + 1}
+                    <ChevronLeft className="h-4 w-4" /> Prev
                   </button>
-                ))}
+                  
+                  {Array.from({ length: totalPages }).map((_, i) => (
+                    <button 
+                      key={i}
+                      onClick={() => setCurrentPage(i + 1)}
+                      className={`h-8 w-8 rounded-lg text-sm font-bold border cursor-pointer ${
+                        currentPage === i + 1 
+                          ? 'bg-cyan-600 text-white border-cyan-600' 
+                          : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'
+                      }`}
+                    >
+                      {i + 1}
+                    </button>
+                  ))}
 
-                <button 
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
-                >
-                  Next <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            )}
-          </div>
-
+                  <button 
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:bg-slate-50 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    Next <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {/* ================= MODALS (بديل الـ ALERTS) ================= */}
+      
+      {/* 1. Confirm Delete Modal */}
+      {confirmModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl animate-in zoom-in duration-200 border-2 border-rose-100">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-rose-50">
+              <AlertTriangle className="h-8 w-8 text-rose-500" />
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-900">Delete User?</h3>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              Are you sure you want to delete <span className="font-bold text-slate-800">{confirmModal.userName}</span>? This action cannot be undone.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => setConfirmModal({ isOpen: false, userId: null, userName: "" })}
+                className="flex-1 rounded-xl bg-slate-100 py-3 font-bold text-slate-700 transition hover:bg-slate-200 border-none cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={executeDelete}
+                className="flex-1 rounded-xl bg-rose-600 py-3 font-bold text-white transition hover:bg-rose-700 border-none cursor-pointer shadow-sm"
+              >
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Feedback Modal (نجاح أو خطأ عام) */}
+      {feedbackModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl animate-in zoom-in duration-200 border-2 ${feedbackModal.type === "success" ? "border-green-100" : "border-red-100"}`}>
+            <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${feedbackModal.type === "success" ? "bg-green-50" : "bg-red-50"}`}>
+              {feedbackModal.type === "success" ? (
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              ) : (
+                <X className="h-8 w-8 text-red-600" />
+              )}
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-900">{feedbackModal.title}</h3>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              {feedbackModal.message}
+            </p>
+            <button
+              onClick={() => setFeedbackModal({ isOpen: false, type: "", title: "", message: "" })}
+              className="mt-6 w-full rounded-xl bg-slate-100 py-3 font-bold text-slate-700 transition hover:bg-slate-200 border-none cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
     </main>
   )
 }

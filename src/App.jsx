@@ -30,6 +30,8 @@ import ResetPassword from './pages/ResetPassword';
 import ProviderOnboarding from './pages/ProviderOnboarding';
 import ProviderEditProfile from './pages/ProviderEditProfile';
 import CustomerProfile from './pages/CustomerProfile';
+import OrderDetails from "./pages/OrderDetails"
+import ManageOrders from './pages/ManageOrders';
 
 
 // سكرول للصفحة من فوق
@@ -66,11 +68,11 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/providers" element={<Providers />} />
-          <Route path="/provider/:name" element={<ProviderProfile />} />
+          <Route path="/provider/:id" element={<ProviderProfile />} />
           <Route path="/my-requests" element={<MyRequests />} />
           <Route path="/provider-dashboard" element={<ProviderDashboard />} />
           <Route path="/admin" element={<AdminDashboard />} />
-          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/checkout/:id" element={<Checkout />} />
           <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/faq" element={<FAQ />} />
@@ -85,6 +87,8 @@ function App() {
           <Route path="/provider-onboarding" element={<ProviderOnboarding />} />
           <Route path="/provider/edit" element={<ProviderEditProfile />} />
           <Route path="/my-profile" element={<CustomerProfile />} />
+          <Route path="/order-details/:id" element={<OrderDetails />} />
+          <Route path="/manage-orders" element={<ManageOrders />} />
 
           {/* حط هنا أي صفحات تانية عايز فيها ناف بار */}
         </Route>

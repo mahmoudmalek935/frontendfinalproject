@@ -1,5 +1,5 @@
-import { useState } from "react"
-import { Link } from "react-router-dom"
+import { useState, useEffect } from "react"
+import { Link, useNavigate } from "react-router-dom"
 import {
   Briefcase,
   Wallet,
@@ -15,112 +15,189 @@ import {
   Edit,
   ClipboardList,
   CheckCircle2,
-  PlayCircle
+  PlayCircle,
+  Loader2
 } from "lucide-react"
 
-const initialRequests = [
-  {
-    id: 1,
-    customer: "Mona Adel",
-    city: "Cairo",
-    district: "Nasr City",
-    service: "Electrical Fault Repair",
-    description: "Lights in the kitchen are flickering and one socket stopped working entirely. Need someone to check the wiring as soon as possible.",
-    date: "11 Jun 2026",
-    time: "10:30 AM",
-    urgency: "amber",
-  },
-  {
-    id: 2,
-    customer: "Karim Hassan",
-    city: "Giza",
-    district: "Dokki",
-    service: "Plumbing - Leak Fix",
-    description: "Water is leaking from under the bathroom sink and the floor is getting wet. Looking for an urgent visit today.",
-    date: "11 Jun 2026",
-    time: "01:15 PM",
-    urgency: "green",
-  },
-]
-
-// داتا وهمية لسجل الشغل (History)
-const initialCompletedJobs = [
-  {
-    id: 101,
-    customer: "Ahmed Tarek",
-    service: "AC Maintenance",
-    date: "05 Jun 2026",
-    amount: "450 EGP",
-    rating: 5,
-  },
-  {
-    id: 102,
-    customer: "Sara Ibrahim",
-    service: "Lighting Installation",
-    date: "02 Jun 2026",
-    amount: "300 EGP",
-    rating: 4,
-  },
-]
-
 export default function ProviderDashboard() {
-  // 🔴 States جديدة عشان الحركة تبقى ديناميكية 🔴
-  const [requests, setRequests] = useState(initialRequests)
-  const [activeJobs, setActiveJobs] = useState([]) // الشغلانات النشطة
-  const [history, setHistory] = useState(initialCompletedJobs) // السجل
-  const [activeTab, setActiveTab] = useState("requests") 
+  const navigate = useNavigate();
+  const providerId = localStorage.getItem("providerId");
+  const token = localStorage.getItem("token");
 
-  // 1. قبول الطلب (بينقله من الجديد للنشط)
-  const handleAccept = (id) => {
-    const jobToAccept = requests.find((r) => r.id === id);
-    if (jobToAccept) {
-      setActiveJobs((prev) => [...prev, jobToAccept]);
+  // States لتخزين البيانات الحقيقية
+  const [requests, setRequests] = useState([]);
+  const [activeJobs, setActiveJobs] = useState([]);
+  const [history, setHistory] = useState([]);
+  
+  const [activeTab, setActiveTab] = useState("requests");
+  const [isLoading, setIsLoading] = useState(true);
+
+  // 🔴 States جديدة للأرباح والمودالز والتحميل بتاع الزراير
+  const [totalEarnings, setTotalEarnings] = useState(0);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isActionLoading, setIsActionLoading] = useState(false);
+
+  // 1. جلب الأوردرات من الباك إند
+  const fetchOrders = async () => {
+    try {
+      const response = await fetch("https://localhost:7088/api/Orders", {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch orders");
+
+      const data = await response.json();
+
+      const pending = [];
+      const active = [];
+      const completed = [];
+      let initialEarnings = 0; 
+
+      data.forEach(order => {
+        // 🔴 التعديل السحري هنا: بنصطاد السعر سواء جاي من الأوردر أو من بيانات الفني وبنحوله لرقم
+        const orderPrice = Number(order.totalPrice || order.price || (order.provider ? order.provider.pricePerVisit : 0) || 0);
+
+        const formattedOrder = {
+          id: order.id,
+          customer: order.customer ? order.customer.fullName : `Customer #${order.customerId}`,
+          city: "N/A", 
+          district: order.district || "Not specified",
+          service: order.service ? order.service.name : "Service",
+          description: order.notes || "No additional details provided.",
+          date: new Date(order.orderDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+          time: new Date(order.orderDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+          urgency: order.urgency ? order.urgency.toLowerCase() : "green",
+          status: order.status,
+          price: orderPrice, // 🔴 السعر الحقيقي
+          amount: `EGP ${orderPrice}`, 
+          rating: order.review ? order.review.rating : 0
+        };
+
+        if (order.status === "Pending") {
+          pending.push(formattedOrder);
+        } else if (order.status === "In Progress" || order.status === "Accepted") {
+          active.push(formattedOrder);
+        } else if (order.status === "Completed") {
+          completed.push(formattedOrder);
+          initialEarnings += orderPrice; // بنجمع الأرباح السابقة
+        }
+      });
+
+      setRequests(pending);
+      setActiveJobs(active);
+      setHistory(completed);
+      setTotalEarnings(initialEarnings); 
+
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!token || !providerId) {
+      navigate('/login');
+      return;
+    }
+    fetchOrders();
+  }, []);
+
+  // دالة مساعدة لتحديث حالة الطلب في الباك إند
+  const updateOrderStatus = async (orderId, newStatus, assignProvider = false) => {
+    const body = { Status: newStatus };
+    if (assignProvider) {
+      body.ProviderId = parseInt(providerId); 
+    }
+
+    try {
+      const response = await fetch(`https://localhost:7088/api/Orders/${orderId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+      });
+      return response.ok;
+    } catch (error) {
+      console.error("Error updating order:", error);
+      return false;
+    }
+  };
+
+  // 2. قبول الطلب
+  const handleAccept = async (id) => {
+    setIsActionLoading(true);
+    const success = await updateOrderStatus(id, "In Progress", true);
+    setIsActionLoading(false);
+
+    if (success) {
+      const jobToAccept = requests.find((r) => r.id === id);
+      setActiveJobs((prev) => [{ ...jobToAccept, status: "In Progress" }, ...prev]);
       setRequests((prev) => prev.filter((r) => r.id !== id));
-      setActiveTab("active"); // ينقله تلقائي لتاب الشغل النشط
+      setActiveTab("active");
+      setSuccessMessage("Job request accepted successfully!"); // 🔴 استبدال الـ alert
+    } else {
+      setErrorMessage("An error occurred while accepting the request. Please try again."); // 🔴 استبدال الـ alert
     }
-  }
+  };
 
-  // 2. رفض الطلب الجديد
+  // 3. رفض الطلب 
   const handleDecline = (id) => {
-    setRequests((prev) => prev.filter((r) => r.id !== id))
-  }
+    setRequests((prev) => prev.filter((r) => r.id !== id));
+  };
 
-  // 3. إنهاء الشغلانة النشطة (بينقلها للسجل)
-  const handleCompleteJob = (id) => {
-    const jobToComplete = activeJobs.find((j) => j.id === id);
-    if (jobToComplete) {
-      const newHistoryItem = {
-        id: jobToComplete.id,
-        customer: jobToComplete.customer,
-        service: jobToComplete.service,
-        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        amount: "Pending", // السعر هيتحدد لاحقاً
-        rating: 0, // لسه متقيمش
-      };
-      setHistory((prev) => [newHistoryItem, ...prev]);
+  // 4. إنهاء الشغلانة النشطة 
+  const handleCompleteJob = async (id) => {
+    setIsActionLoading(true);
+    const success = await updateOrderStatus(id, "Completed", false);
+    setIsActionLoading(false);
+
+    if (success) {
+      const jobToComplete = activeJobs.find((j) => j.id === id);
+      setHistory((prev) => [{ ...jobToComplete, status: "Completed" }, ...prev]);
       setActiveJobs((prev) => prev.filter((j) => j.id !== id));
-      setActiveTab("history"); // ينقله تلقائي للسجل
+      
+      // 🔴 تحديث الفلوس لايف (نتأكد إننا بنجمع أرقام Number)
+      setTotalEarnings((prev) => prev + Number(jobToComplete.price || 0));
+      
+      setActiveTab("history");
+      setSuccessMessage(`Job completed successfully! EGP ${jobToComplete.price} added to your earnings.`); // 🔴 رسالة بتوضح الفلوس اللي زادت
+    } else {
+      setErrorMessage("An error occurred while completing the job."); 
     }
-  }
+  };
+  // 5. إلغاء شغلانة نشطة
+  const handleCancelActiveJob = async (id) => {
+    if (window.confirm("Are you sure you want to cancel this active job? The customer will be notified.")) {
+      setIsActionLoading(true);
+      const success = await updateOrderStatus(id, "Canceled", false);
+      setIsActionLoading(false);
 
-  // 4. إلغاء شغلانة نشطة
-  const handleCancelActiveJob = (id) => {
-    if(window.confirm("Are you sure you want to cancel this active job? The customer will be notified.")){
+      if (success) {
         setActiveJobs((prev) => prev.filter((j) => j.id !== id));
+        setSuccessMessage("Job has been successfully canceled.");
+      } else {
+        setErrorMessage("An error occurred while canceling the job."); // 🔴 استبدال الـ alert
+      }
     }
-  }
+  };
 
   const stats = [
     {
       label: "Active Jobs",
-      value: String(activeJobs.length), // بيقرا العدد الحقيقي دلوقتي
+      value: String(activeJobs.length),
       icon: Briefcase,
       iconBg: "bg-cyan-100",
       iconColor: "text-cyan-700",
     },
     {
       label: "Total Earnings",
-      value: "EGP 1,950",
+      value: `EGP ${totalEarnings}`, // 🔴 مربوطة بالـ State الديناميك
       icon: Wallet,
       iconBg: "bg-amber-100",
       iconColor: "text-amber-600",
@@ -132,13 +209,17 @@ export default function ProviderDashboard() {
       iconBg: "bg-slate-200",
       iconColor: "text-slate-700",
     },
-  ]
+  ];
+
+  if (isLoading) {
+    return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="w-10 h-10 animate-spin text-cyan-600" /></div>;
+  }
 
   return (
-    <div className="py-8 bg-slate-50 min-h-screen">
+    <div className="py-8 bg-slate-50 min-h-screen relative">
       <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8">
         
-        {/* Header with Edit Profile Button */}
+        {/* Header */}
         <header className="mb-8 flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
             <h1 className="text-balance text-3xl font-extrabold tracking-tight text-slate-900">
@@ -172,7 +253,7 @@ export default function ProviderDashboard() {
           })}
         </section>
 
-        {/* 🔴 Tabs Navigation (ضفنا التاب التالت) 🔴 */}
+        {/* Tabs Navigation */}
         <div className="flex gap-2 border-b border-slate-200 mb-6 overflow-x-auto pb-1">
           <button
             onClick={() => setActiveTab("requests")}
@@ -215,8 +296,6 @@ export default function ProviderDashboard() {
           </button>
         </div>
 
-        {/* Main Content Area based on Active Tab */}
-        
         {/* ---------------- TAB 1: NEW REQUESTS ---------------- */}
         {activeTab === "requests" && (
           <section className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -232,10 +311,10 @@ export default function ProviderDashboard() {
               requests.map((req) => (
                 <article key={req.id} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow hover:shadow-md">
                   <div className="flex items-center justify-between gap-3 border-b border-slate-100 bg-slate-50 px-6 py-3.5">
-                    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ${req.urgency === "amber" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>
+                    <span className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-xs font-bold ${req.urgency === "high" ? "bg-amber-100 text-amber-700" : "bg-green-100 text-green-700"}`}>
                       <span className="relative flex h-2 w-2">
-                        <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${req.urgency === "amber" ? "bg-amber-500" : "bg-green-500"}`} />
-                        <span className={`relative inline-flex h-2 w-2 rounded-full ${req.urgency === "amber" ? "bg-amber-500" : "bg-green-500"}`} />
+                        <span className={`absolute inline-flex h-full w-full animate-ping rounded-full opacity-75 ${req.urgency === "high" ? "bg-amber-500" : "bg-green-500"}`} />
+                        <span className={`relative inline-flex h-2 w-2 rounded-full ${req.urgency === "high" ? "bg-amber-500" : "bg-green-500"}`} />
                       </span>
                       New Request
                     </span>
@@ -249,15 +328,15 @@ export default function ProviderDashboard() {
                   <div className="px-6 py-5">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-600 text-lg font-bold text-white shadow-sm">
-                          {req.customer.split(" ").map((n) => n[0]).join("")}
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-600 text-lg font-bold text-white shadow-sm uppercase">
+                          {req.customer.charAt(0)}
                         </div>
                         <div>
                           <p className="flex items-center gap-1.5 text-lg font-bold text-slate-900">
                             <User className="h-4 w-4 text-slate-400" /> {req.customer}
                           </p>
                           <p className="flex items-center gap-1.5 text-sm font-medium text-slate-500 mt-1">
-                            <MapPin className="h-4 w-4 text-slate-400" /> {req.district}, {req.city}
+                            <MapPin className="h-4 w-4 text-slate-400" /> {req.district}
                           </p>
                         </div>
                       </div>
@@ -275,15 +354,17 @@ export default function ProviderDashboard() {
                   <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row bg-slate-50">
                     <button
                       type="button"
+                      disabled={isActionLoading}
                       onClick={() => handleAccept(req.id)}
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-cyan-700 border-none cursor-pointer shadow-sm"
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-cyan-700 border-none cursor-pointer shadow-sm disabled:opacity-70"
                     >
-                      <Check className="h-5 w-5" /> Accept Job
+                      {isActionLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Check className="h-5 w-5" />} Accept Job
                     </button>
                     <button
                       type="button"
+                      disabled={isActionLoading}
                       onClick={() => handleDecline(req.id)}
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-red-100 bg-white px-4 py-3 text-sm font-bold text-red-600 transition-colors hover:bg-red-50 hover:border-red-200 cursor-pointer"
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-red-100 bg-white px-4 py-3 text-sm font-bold text-red-600 transition-colors hover:bg-red-50 hover:border-red-200 cursor-pointer disabled:opacity-70"
                     >
                       <X className="h-5 w-5" /> Decline
                     </button>
@@ -294,7 +375,7 @@ export default function ProviderDashboard() {
           </section>
         )}
 
-        {/* ---------------- TAB 2: ACTIVE JOBS (التاب الجديد) ---------------- */}
+        {/* ---------------- TAB 2: ACTIVE JOBS ---------------- */}
         {activeTab === "active" && (
           <section className="flex flex-col gap-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
             {activeJobs.length === 0 ? (
@@ -320,15 +401,15 @@ export default function ProviderDashboard() {
                   <div className="px-6 py-5">
                     <div className="flex flex-wrap items-start justify-between gap-4">
                       <div className="flex items-center gap-4">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-600 text-lg font-bold text-white shadow-sm">
-                          {job.customer.split(" ").map((n) => n[0]).join("")}
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-cyan-600 text-lg font-bold text-white shadow-sm uppercase">
+                          {job.customer.charAt(0)}
                         </div>
                         <div>
                           <p className="flex items-center gap-1.5 text-lg font-bold text-slate-900">
                             <User className="h-4 w-4 text-slate-400" /> {job.customer}
                           </p>
                           <p className="flex items-center gap-1.5 text-sm font-medium text-slate-500 mt-1">
-                            <MapPin className="h-4 w-4 text-slate-400" /> {job.district}, {job.city}
+                            <MapPin className="h-4 w-4 text-slate-400" /> {job.district}
                           </p>
                         </div>
                       </div>
@@ -341,15 +422,17 @@ export default function ProviderDashboard() {
                   <div className="flex flex-col gap-3 border-t border-slate-100 px-6 py-4 sm:flex-row bg-slate-50">
                     <button
                       type="button"
+                      disabled={isActionLoading}
                       onClick={() => handleCompleteJob(job.id)}
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-green-700 border-none cursor-pointer shadow-sm"
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white transition-colors hover:bg-green-700 border-none cursor-pointer shadow-sm disabled:opacity-70"
                     >
-                      <CheckCircle2 className="h-5 w-5" /> Mark as Completed
+                      {isActionLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />} Mark as Completed
                     </button>
                     <button
                       type="button"
+                      disabled={isActionLoading}
                       onClick={() => handleCancelActiveJob(job.id)}
-                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:border-slate-300 cursor-pointer"
+                      className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl border-2 border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-600 transition-colors hover:bg-slate-50 hover:border-slate-300 cursor-pointer disabled:opacity-70"
                     >
                       <X className="h-5 w-5" /> Cancel Job
                     </button>
@@ -413,6 +496,51 @@ export default function ProviderDashboard() {
         )}
 
       </div>
+
+      {/* ---------------- MODALS (رسائل النجاح والخطأ الشيك) ---------------- */}
+      
+      {/* Success Modal */}
+      {successMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl animate-in zoom-in duration-300 border-2 border-green-100">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-900">Success!</h3>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              {successMessage}
+            </p>
+            <button
+              onClick={() => setSuccessMessage("")}
+              className="mt-6 w-full rounded-xl bg-slate-100 py-2.5 font-bold text-slate-700 transition hover:bg-slate-200 border-none cursor-pointer"
+            >
+              Awesome
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {errorMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl animate-in zoom-in duration-300 border-2 border-red-100">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+              <AlertCircle className="h-8 w-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-900">Oops!</h3>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              {errorMessage}
+            </p>
+            <button
+              onClick={() => setErrorMessage("")}
+              className="mt-6 w-full rounded-xl bg-slate-100 py-2.5 font-bold text-slate-700 transition hover:bg-slate-200 border-none cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

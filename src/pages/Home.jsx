@@ -1,9 +1,10 @@
-import { useState } from "react"
+import { useState, useEffect } from "react" // 🔴 ضفنا useEffect هنا
 import { Link, useNavigate } from "react-router-dom"
 import {
   Search, Wrench, Zap, Sparkles, PaintRoller, Hammer, Wind,
   Star, ShieldCheck, Award, Lock, ArrowRight, MousePointerClick,
-  CalendarCheck, Smile, UserPlus, Briefcase, Wallet, MapPin, CheckCircle2
+  CalendarCheck, Smile, UserPlus, Briefcase, Wallet, MapPin, CheckCircle2,
+  Loader2 // 🔴 ضفنا أيقونة التحميل
 } from "lucide-react"
 
 const services = [
@@ -13,12 +14,6 @@ const services = [
   { icon: PaintRoller, title: "Painting", desc: "Interior and exterior painting with a flawless finish." },
   { icon: Hammer, title: "Carpentry", desc: "Custom woodwork, furniture fixes, and door repairs." },
   { icon: Wind, title: "AC Repair", desc: "Air conditioning installation, servicing, and cooling fixes." },
-]
-
-const providers = [
-  { name: "Karim Hassan", specialty: "Certified Electrician", rating: "4.9", reviews: 218, image: "/provider-electrician.png" },
-  { name: "Mostafa Ali", specialty: "Master Plumber", rating: "4.8", reviews: 174, image: "/provider-plumber.png" },
-  { name: "Salma Ibrahim", specialty: "Cleaning Specialist", rating: "5.0", reviews: 302, image: "/provider-cleaner.png" },
 ]
 
 const trust = [
@@ -43,7 +38,32 @@ export default function Home() {
   const [query, setQuery] = useState("")
   const navigate = useNavigate()
 
-  // فنكشن عشان نشغل زرار البحث
+  // 🔴 States جديدة لجلب أفضل الصنايعية
+  const [topProviders, setTopProviders] = useState([])
+  const [isLoadingProviders, setIsLoadingProviders] = useState(true)
+  const isLoggedIn = !!localStorage.getItem("token");
+
+ // 🔴 جلب الداتا من المسار الجديد بتاع الـ Top Rated
+  useEffect(() => {
+    const fetchTopProviders = async () => {
+      try {
+        // التعديل هنا: غيرنا اللينك لمسار top-rated
+        const response = await fetch("https://localhost:7088/api/Providers/top-rated");
+        if (!response.ok) throw new Error("Failed to fetch");
+        const data = await response.json();
+
+        // الباك إند دلوقتي بيبعتهم مترتبين وجاهزين (أعلى 6)، فمش محتاجين نعمل sort هنا
+        setTopProviders(data);
+      } catch (error) {
+        console.error("Error fetching top providers:", error);
+      } finally {
+        setIsLoadingProviders(false);
+      }
+    };
+
+    fetchTopProviders();
+  }, []);
+
   const handleSearch = () => {
     if (query.trim()) {
       navigate(`/providers?category=${query}`)
@@ -54,7 +74,7 @@ export default function Home() {
 
   return (
     <div className="bg-slate-100 font-sans text-slate-800">
-      
+
       {/* ===== Hero ===== */}
       <section id="home" className="relative overflow-hidden bg-white">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-24 lg:px-8 lg:py-28">
@@ -82,20 +102,19 @@ export default function Home() {
                     className="w-full bg-transparent py-2.5 text-sm text-slate-800 placeholder:text-slate-400 border-none focus:outline-none focus:ring-0"
                   />
                 </div>
-                <button 
+                <button
                   onClick={handleSearch}
                   className="inline-flex cursor-pointer border-none items-center justify-center gap-2 rounded-xl bg-cyan-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 sm:rounded-full"
                 >
                   Find Expert <ArrowRight className="h-4 w-4" />
                 </button>
               </div>
-              
-              {/* تعديل التاجز لروابط حقيقية */}
+
               <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm text-slate-500">
                 <span className="font-medium text-slate-600">Popular:</span>
                 {["Plumbing", "AC Repair", "Cleaning", "Electrical"].map((tag) => (
-                  <Link 
-                    key={tag} 
+                  <Link
+                    key={tag}
                     to={`/providers?category=${tag}`}
                     className="cursor-pointer rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-600 transition-colors hover:bg-cyan-50 hover:text-cyan-700 decoration-none"
                   >
@@ -123,8 +142,7 @@ export default function Home() {
                 </div>
                 <h3 className="mt-5 text-xl font-bold text-slate-900">{service.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-slate-600">{service.desc}</p>
-                
-                {/* تعديل اللينك هنا ليمرر اسم القسم في الـ URL */}
+
                 <Link to={`/providers?category=${service.title}`} className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-cyan-700 transition-colors group-hover:text-amber-500 decoration-none">
                   View Professionals <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
                 </Link>
@@ -134,31 +152,54 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ===== Featured Providers ===== */}
+      {/* ===== Featured Providers (🔴 مربوطة بالداتا الحقيقية 🔴) ===== */}
       <section className="bg-white">
         <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">Top-Rated Providers</h2>
           </div>
-          <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
-            {providers.map((provider) => (
-              <div key={provider.name} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-lg">
-                <div className="relative">
-                  <img src={provider.image} alt={provider.name} className="h-60 w-full object-cover" onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Provider' }} />
-                  <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-white/95 px-3 py-1 text-sm font-semibold text-slate-800 shadow">
-                    <Star className="h-4 w-4 fill-amber-500 text-amber-500" /> {provider.rating}
-                  </span>
+          
+          {isLoadingProviders ? (
+            <div className="mt-12 flex justify-center items-center py-10">
+              <Loader2 className="h-10 w-10 animate-spin text-cyan-600" />
+            </div>
+          ) : (
+            <div className="mt-12 grid grid-cols-1 gap-8 md:grid-cols-3">
+              {topProviders.map((provider) => (
+                <div key={provider.providerId} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-all hover:shadow-lg">
+                  <div className="relative">
+                    <img 
+                      src={provider.profilePicture ? `https://localhost:7088${provider.profilePicture}` : "/provider-electrician.png"} 
+                      alt={provider.fullName} 
+                      className="h-60 w-full object-cover" 
+                      onError={(e) => { e.target.src = 'https://via.placeholder.com/400x300?text=Provider' }} 
+                    />
+                    <span className="absolute right-4 top-4 inline-flex items-center gap-1 rounded-full bg-white/95 px-3 py-1 text-sm font-semibold text-slate-800 shadow">
+                      <Star className="h-4 w-4 fill-amber-500 text-amber-500" /> 
+                      {/* 🔴 قراءة التقييم */}
+                      {provider.rating ? provider.rating.toFixed(1) : "0.0"}
+                    </span>
+                  </div>
+                  <div className="p-6">
+                    <h3 className="text-xl font-bold text-slate-900">{provider.fullName}</h3>
+                    <p className="mt-1 text-sm font-medium text-cyan-700">{provider.serviceName}</p>
+                    <Link to={`/provider/${provider.providerId}`} className="mt-5 flex justify-center w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 decoration-none">
+                      View Profile
+                    </Link>
+                  </div>
                 </div>
-                <div className="p-6">
-                  <h3 className="text-xl font-bold text-slate-900">{provider.name}</h3>
-                  <p className="mt-1 text-sm font-medium text-cyan-700">{provider.specialty}</p>
-                  <Link to={`/provider/${provider.name.toLowerCase().replace(' ', '-')}`} className="mt-5 flex justify-center w-full rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-cyan-700 decoration-none">
-                    View Profile
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
+
+          {/* زرار لو عايز يشوف كل الصنايعية */}
+          {!isLoadingProviders && topProviders.length > 0 && (
+            <div className="mt-10 flex justify-center">
+              <Link to="/providers" className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 shadow-sm decoration-none">
+                View All Providers <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          )}
         </div>
       </section>
 
@@ -226,6 +267,7 @@ export default function Home() {
       </section>
 
       {/* ===== Provider Recruitment CTA ===== */}
+      {!isLoggedIn && (
       <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
         <div className="overflow-hidden rounded-3xl bg-cyan-700 px-6 py-12 sm:px-12 sm:py-16">
           <div className="flex flex-col items-center gap-8 text-center lg:flex-row lg:justify-between lg:text-left">
@@ -243,7 +285,8 @@ export default function Home() {
           </div>
         </div>
       </section>
-      
+      )}
+
     </div>
   )
 }

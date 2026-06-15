@@ -1,6 +1,6 @@
 import { useState } from "react"
 import { Link, useNavigate } from "react-router-dom"
-import logo from '../assets/logo.jpeg' 
+import logo from '../assets/logo.jpeg'
 import { Menu, X, Briefcase, ShieldAlert, LogOut, UserCircle, ClipboardList } from "lucide-react"
 
 const navLinks = [
@@ -13,15 +13,31 @@ const navLinks = [
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const navigate = useNavigate()
-  
+
   const token = localStorage.getItem("token")
-  const userRole = localStorage.getItem("userRole") || "customer"
+  const userRole = localStorage.getItem("role")
+  const providerId = localStorage.getItem("providerId")
+
+  const fullName = localStorage.getItem("fullName") || "profile";
+  // دي بتحول الاسم لسمول وتشيل المسافات، يعني Ahmed Hany هتبقى ahmed-hany
+  const formattedName = fullName.toLowerCase().replace(/\s+/g, '-');
 
   const handleLogout = () => {
     localStorage.removeItem("token")
-    localStorage.removeItem("userRole")
-    window.location.href = "/"; 
+    localStorage.removeItem("role")
+    localStorage.removeItem("fullName")
+    localStorage.removeItem("providerId") // لو موجود، نحذفه كمان
+    window.location.href = "/";
   }
+
+  // 🔴 دالة صغيرة عشان تفلتر اللينكات: لو صنايعي هنخفي الـ Providers Directory
+  // const filteredNavLinks = navLinks.filter(link => {
+  //   if (userRole === 'provider' && link.label === 'Providers Directory') {
+  //     return false; // متظهروش
+  //   }
+  //   return true; // أظهر الباقي عادي
+  // });
+  const filteredNavLinks = navLinks;
 
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
@@ -31,9 +47,9 @@ export default function Navbar() {
           <img src={logo} alt="Baytak logo" className="h-10 w-auto object-contain" />
         </Link>
 
-        {/* اللينكات الأساسية */}
+        {/* 🔴 اللينكات الأساسية (استخدمنا filteredNavLinks بدل navLinks) 🔴 */}
         <ul className="hidden items-center gap-6 lg:flex m-0 p-0 list-none">
-          {navLinks.map((link) => (
+          {filteredNavLinks.map((link) => (
             <li key={link.label}>
               <Link to={link.href} className="text-sm font-bold text-slate-600 transition-colors hover:text-cyan-700 decoration-none">
                 {link.label}
@@ -54,10 +70,17 @@ export default function Navbar() {
               )}
 
               {userRole === 'provider' && (
-                <Link to="/provider-dashboard" className="flex items-center gap-1.5 text-sm font-bold text-amber-600 hover:text-amber-700 transition-colors decoration-none bg-amber-50 hover:bg-amber-100 px-3 py-2 rounded-xl">
-                  <Briefcase size={16} />
-                  Provider
-                </Link>
+                <>
+                  <Link to="/provider-dashboard" className="flex items-center gap-1.5 text-sm font-bold text-amber-600 hover:text-amber-700 transition-colors decoration-none bg-amber-50 hover:bg-amber-100 px-3 py-2 rounded-xl">
+                    <Briefcase size={16} />
+                    Provider
+                  </Link>
+                  {/* 🔴 ضفنا زرار Account للصنايعي 🔴 */}
+                  <Link to={`/provider/${providerId}`} className="flex items-center gap-1.5 text-sm font-bold text-slate-700 hover:text-slate-900 transition-colors decoration-none bg-slate-100 hover:bg-slate-200 px-3 py-2 rounded-xl shadow-sm">
+                    <UserCircle size={16} />
+                    Account
+                  </Link>
+                </>
               )}
 
               {userRole === 'customer' && (
@@ -73,8 +96,8 @@ export default function Navbar() {
                 </>
               )}
 
-              <button 
-                onClick={handleLogout} 
+              <button
+                onClick={handleLogout}
                 className="flex items-center gap-1.5 rounded-xl border border-rose-200 px-3 py-2 text-sm font-bold text-rose-600 transition-colors hover:bg-rose-50 cursor-pointer bg-white ml-1 shadow-sm"
               >
                 <LogOut size={16} />
@@ -105,7 +128,8 @@ export default function Navbar() {
       {mobileOpen && (
         <div className="border-t border-slate-100 bg-white px-4 py-4 lg:hidden shadow-lg absolute w-full">
           <ul className="flex flex-col gap-2 m-0 p-0 list-none mb-4">
-            {navLinks.map((link) => (
+            {/* 🔴 اللينكات في الموبايل (استخدمنا filteredNavLinks) 🔴 */}
+            {filteredNavLinks.map((link) => (
               <li key={link.label}>
                 <Link to={link.href} onClick={() => setMobileOpen(false)} className="block rounded-xl px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 hover:text-cyan-700 transition-colors decoration-none">
                   {link.label}
@@ -113,7 +137,7 @@ export default function Navbar() {
               </li>
             ))}
           </ul>
-          
+
           <div className="border-t border-slate-100 pt-4 flex flex-col gap-3">
             {token ? (
               <>
@@ -122,13 +146,19 @@ export default function Navbar() {
                     <ShieldAlert size={18} /> Admin Dashboard
                   </Link>
                 )}
-                
+
                 {userRole === 'provider' && (
-                  <Link to="/provider-dashboard" onClick={() => setMobileOpen(false)} className="flex items-center justify-center gap-2 w-full rounded-xl bg-amber-50 text-amber-700 px-4 py-3 text-sm font-bold decoration-none border border-amber-100">
-                    <Briefcase size={18} /> Provider Panel
-                  </Link>
+                  <>
+                    <Link to="/provider-dashboard" onClick={() => setMobileOpen(false)} className="flex items-center justify-center gap-2 w-full rounded-xl bg-amber-50 text-amber-700 px-4 py-3 text-sm font-bold decoration-none border border-amber-100">
+                      <Briefcase size={18} /> Provider Panel
+                    </Link>
+                    {/* 🔴 زرار Account للموبايل للصنايعي 🔴 */}
+                    <Link to={`/provider/${providerId}`} onClick={() => setMobileOpen(false)} className="flex items-center justify-center gap-2 w-full rounded-xl bg-slate-100 text-slate-700 px-4 py-3 text-sm font-bold decoration-none border border-slate-200">
+                      <UserCircle size={18} /> Account Settings
+                    </Link>
+                  </>
                 )}
-                
+
                 {userRole === 'customer' && (
                   <>
                     <Link to="/my-requests" onClick={() => setMobileOpen(false)} className="flex items-center justify-center gap-2 w-full rounded-xl bg-cyan-50 text-cyan-700 px-4 py-3 text-sm font-bold decoration-none border border-cyan-100">

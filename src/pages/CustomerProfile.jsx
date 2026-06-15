@@ -1,14 +1,71 @@
-import { Link } from 'react-router-dom';
-import { User, Mail, Phone, MapPin, Edit, ShieldCheck, Calendar } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { User, Mail, Phone, MapPin, Edit, ShieldCheck, Calendar, Loader2 } from 'lucide-react';
 
 export default function CustomerProfile() {
-  // بيانات وهمية للعميل
-  const customerInfo = {
-    name: "Mostafa Adel",
-    email: "mostafa.adel@email.com",
-    phone: "01012345678",
-    location: "Al-Hawamidiyya, Giza",
-    joinDate: "June 2026"
+  const [customerInfo, setCustomerInfo] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      const token = localStorage.getItem("token");
+      
+      if (!token) {
+        navigate('/login');
+        return;
+      }
+
+      try {
+        const response = await fetch('https://localhost:7088/api/Auth/profile', {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setCustomerInfo({
+            name: data.fullName,
+            email: data.email,
+            phone: data.phone || "Not provided", 
+            location: data.address || "No address saved yet",
+            profilePicture: data.profilePicture || null, 
+            joinDate: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) 
+          });
+        } else {
+          localStorage.removeItem("token");
+          navigate('/login');
+        }
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchProfileData();
+  }, [navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center">
+        <Loader2 className="w-12 h-12 text-cyan-600 animate-spin mb-4" />
+        <p className="text-slate-500 font-medium">Loading your profile...</p>
+      </div>
+    );
+  }
+
+  if (!customerInfo) return null;
+
+  // 🔴 الدالة دي عشان تظبط مسار الصورة وتقرأها من السيرفر 🔴
+  const getImageUrl = (picPath) => {
+    if (!picPath) return null;
+    // لو المسار بيبدأ بـ / يبقى ده من السيرفر بتاعنا، نحط قبله الرابط
+    if (picPath.startsWith('/')) {
+      return `https://localhost:7088${picPath}`;
+    }
+    return picPath; // لو صورة قديمة Base64 رجعها زي ما هي
   };
 
   return (
@@ -36,9 +93,19 @@ export default function CustomerProfile() {
           {/* Cover & Avatar */}
           <div className="h-32 bg-slate-200 relative">
             <div className="absolute -bottom-12 left-8">
-              <div className="w-24 h-24 rounded-full border-4 border-white bg-cyan-100 flex items-center justify-center text-cyan-700 text-3xl font-bold shadow-sm">
-                {customerInfo.name.charAt(0)}
-              </div>
+              
+              {/* 🟢 عرض الصورة بالرابط المتظبط 🟢 */}
+              {customerInfo.profilePicture ? (
+                <img 
+                  src={getImageUrl(customerInfo.profilePicture)} 
+                  alt="Profile" 
+                  className="w-24 h-24 rounded-full border-4 border-white object-cover shadow-sm bg-white"
+                />
+              ) : (
+                <div className="w-24 h-24 rounded-full border-4 border-white bg-cyan-100 flex items-center justify-center text-cyan-700 text-3xl font-bold shadow-sm uppercase">
+                  {customerInfo.name ? customerInfo.name.charAt(0) : "U"}
+                </div>
+              )}
             </div>
           </div>
 
