@@ -60,7 +60,6 @@ export default function ManageOrders() {
       }
 
       try {
-        // بنكلم مسار الأوردرات (لو عندك مسار مخصص للإدمن زي /api/Orders/admin/all استخدمه)
         const response = await fetch("https://localhost:7088/api/Orders", {
           headers: { "Authorization": `Bearer ${token}` }
         });
@@ -70,12 +69,13 @@ export default function ManageOrders() {
         const data = await response.json();
         
         const formattedOrders = data.map(order => {
-          // حساب السعر زي ما عملنا قبل كده
+          // حساب السعر الحقيقي للطلب
           const orderPrice = Number(order.totalPrice || order.price || (order.provider ? order.provider.pricePerVisit : 0) || 0);
 
           return {
             id: order.id,
             customerName: order.customer ? order.customer.fullName : `Customer #${order.customerId}`,
+            // 🔴 جلب اسم الصنايعي بشكل سليم
             providerName: order.provider && order.provider.user ? order.provider.user.fullName : "Not Assigned",
             service: order.service ? order.service.name : "Unknown Service",
             district: order.district || "Not specified",
@@ -88,7 +88,6 @@ export default function ManageOrders() {
           };
         });
 
-        // نعرض أحدث الأوردرات فوق
         formattedOrders.sort((a, b) => b.id - a.id);
         setOrders(formattedOrders);
       } catch (err) {
@@ -161,7 +160,6 @@ export default function ManageOrders() {
     document.body.removeChild(link);
   }
 
-  // دالة لاختيار لون حالة الأوردر
   const getStatusBadge = (status) => {
     switch (status) {
       case "Pending": return "bg-amber-50 text-amber-700 border-amber-200";
@@ -257,13 +255,15 @@ export default function ManageOrders() {
         {/* Data Table */}
         <div className="overflow-hidden rounded-2xl bg-white shadow-sm border border-slate-200">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left border-collapse">
+            <table className="w-full min-w-[1000px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50">
                   <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Order ID</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Customer</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Provider</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Service</th>
+                  {/* 🔴 ضفنا عمود السعر هنا 🔴 */}
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Amount</th>
                   <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-slate-500">Status</th>
                   <th className="px-6 py-4 text-right text-xs font-bold uppercase tracking-wider text-slate-500">Actions</th>
                 </tr>
@@ -271,7 +271,7 @@ export default function ManageOrders() {
               <tbody>
                 {isLoading ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center">
+                    <td colSpan={7} className="px-6 py-12 text-center">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <Loader2 className="h-8 w-8 animate-spin text-cyan-600" />
                         <p className="text-sm font-medium text-slate-500">Loading orders...</p>
@@ -280,7 +280,7 @@ export default function ManageOrders() {
                   </tr>
                 ) : paginatedOrders.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-12 text-center text-sm font-medium text-slate-500">
+                    <td colSpan={7} className="px-6 py-12 text-center text-sm font-medium text-slate-500">
                       No orders found matching your criteria.
                     </td>
                   </tr>
@@ -293,13 +293,18 @@ export default function ManageOrders() {
                         <p className="text-xs text-slate-500 mt-0.5">{order.district}</p>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`text-sm font-bold ${order.providerName === "Not Assigned" ? "text-slate-400 italic" : "text-slate-900"}`}>
+                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-bold ${order.providerName === "Not Assigned" ? "bg-slate-100 text-slate-500 border border-slate-200" : "bg-cyan-50 text-cyan-700 border border-cyan-100"}`}>
+                          {order.providerName === "Not Assigned" ? <Clock className="w-3 h-3" /> : <User className="w-3 h-3" />}
                           {order.providerName}
                         </span>
                       </td>
                       <td className="px-6 py-4">
                         <p className="text-sm font-bold text-slate-900">{order.service}</p>
                         <p className="text-xs text-slate-500 font-medium mt-0.5">{order.date}</p>
+                      </td>
+                      {/* 🔴 عرض السعر في الجدول 🔴 */}
+                      <td className="px-6 py-4">
+                        <span className="text-sm font-extrabold text-slate-900">{order.amount}</span>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-bold ${getStatusBadge(order.status)}`}>

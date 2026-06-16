@@ -1,23 +1,31 @@
 import { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom'; // 🔴 ضفنا useLocation هنا
-import { Mail, Lock, Eye, EyeOff, AlertCircle, Loader2 } from 'lucide-react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { Mail, Lock, Eye, EyeOff, AlertCircle, Loader2, Info, X } from 'lucide-react';
 
+import { useGoogleLogin } from '@react-oauth/google';
+import fbLogin from 'react-facebook-login/dist/facebook-login-render-props';
+const FacebookLogin = fbLogin.default || fbLogin;
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
   const location = useLocation();
-  
-  // 🔴 States جديدة للربط 🔴
+
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
-  
+
+  const [feedbackModal, setFeedbackModal] = useState({ isOpen: false, title: "", message: "" });
+
   const navigate = useNavigate();
+
+  const showFeedback = (title, message) => {
+    setFeedbackModal({ isOpen: true, title, message });
+  }
 
   const handleSignIn = async (e) => {
     e.preventDefault();
-    setErrorMessage(''); // تصفير أي خطأ قديم
+    setErrorMessage('');
 
     try {
       setIsLoading(true);
@@ -31,27 +39,21 @@ export default function Login() {
       });
 
       if (!response.ok) {
-        // لو الإيميل أو الباسورد غلط
         const errorText = await response.text();
         throw new Error(errorText || 'Invalid email or password');
       }
 
       const data = await response.json();
 
-      // 🔴 تسجيل الدخول الحقيقي وتخزين الداتا في الـ LocalStorage 🔴
       localStorage.setItem("token", data.token);
-      localStorage.setItem("role", data.role.toLowerCase()); 
+      localStorage.setItem("role", data.role.toLowerCase());
       localStorage.setItem("fullName", data.fullName);
 
-      // 🔴 الكود الجديد اتحط هنا في مكانه الصح 🔴
       if (data.providerId) {
-          localStorage.setItem("providerId", data.providerId);
+        localStorage.setItem("providerId", data.providerId);
       }
 
-     // 🔴 تحديد المسار اللي هيرجعله (سواء كان في صفحة الحجز أو هيرجع للرئيسية)
       const returnUrl = location?.state?.from || "/";
-      
-      // النقل للمسار الجديد مع عمل ريفريش
       window.location.href = returnUrl;
 
     } catch (error) {
@@ -61,12 +63,71 @@ export default function Login() {
     }
   };
 
-  const handleGoogleSignIn = () => {
-    alert('Google Login integration coming soon!');
-  };
+  const handleGoogleSignIn = useGoogleLogin({
+    onSuccess: async (tokenResponse) => {
+      try {
+        const response = await fetch('https://localhost:7088/api/auth/google-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ accessToken: tokenResponse.access_token })
+        });
 
-  const handleAppleSignIn = () => {
-    alert('Apple Login integration coming soon!');
+        if (!response.ok) throw new Error('Failed to authenticate');
+
+        const data = await response.json();
+
+        if (data.isNewUser) {
+          showFeedback("info", "Account Not Found", "You don't have an account yet. Please register first.");
+          setTimeout(() => navigate('/register'), 2500); 
+          return;
+        }
+
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("role", data.role.toLowerCase());
+        localStorage.setItem("fullName", data.fullName);
+        if (data.providerId) localStorage.setItem("providerId", data.providerId);
+
+        window.location.href = "/";
+
+      } catch (error) {
+        showFeedback("error", "Login Failed", "Something went wrong during Google authentication.");
+      }
+    },
+    onError: () => showFeedback("error", "Google Error", "Could not connect to Google.")
+  });
+
+  const handleFacebookSignIn = async (fbResponse) => {
+    if (!fbResponse.accessToken) {
+      showFeedback("error", "Facebook Error", "Login cancelled or failed.");
+      return;
+    }
+
+    try {
+      const response = await fetch('https://localhost:7088/api/auth/facebook-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accessToken: fbResponse.accessToken })
+      });
+
+      if (!response.ok) throw new Error('Failed to authenticate');
+      const data = await response.json();
+      
+      if (data.isNewUser) {
+         showFeedback("info", "Account Not Found", "You don't have an account yet. Please register first.");
+         setTimeout(() => navigate('/register'), 2500);
+         return;
+      }
+
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("role", data.role.toLowerCase()); 
+      localStorage.setItem("fullName", data.fullName);
+      if (data.providerId) localStorage.setItem("providerId", data.providerId);
+      
+      window.location.href = "/";
+
+    } catch (error) {
+      showFeedback("error", "Login Failed", "Something went wrong during Facebook authentication.");
+    }
   };
 
   const handleForgotPassword = (e) => {
@@ -75,10 +136,9 @@ export default function Login() {
   };
 
   return (
-    <div className="py-16 bg-slate-50 flex items-center justify-center px-4 min-h-[85vh]">
-      {/* Main Card */}
+    <div className="py-16 bg-slate-50 flex items-center justify-center px-4 min-h-[85vh] relative">
       <div className="bg-white rounded-3xl shadow-xl border border-slate-100 max-w-md w-full p-8">
-        {/* Header */}
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-slate-900 text-center mb-2">
             Welcome back to Baytak
@@ -88,7 +148,6 @@ export default function Login() {
           </p>
         </div>
 
-        {/* 🔴 إظهار رسالة الخطأ لو موجودة 🔴 */}
         {errorMessage && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3">
             <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
@@ -96,9 +155,7 @@ export default function Login() {
           </div>
         )}
 
-        {/* Form */}
         <form onSubmit={handleSignIn} className="space-y-5">
-          {/* Email Input */}
           <div className="relative">
             <label htmlFor="email" className="block text-sm font-bold text-slate-700 mb-2">
               Email Address
@@ -117,7 +174,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Password Input */}
           <div className="relative">
             <label htmlFor="password" className="block text-sm font-bold text-slate-700 mb-2">
               Password
@@ -143,7 +199,6 @@ export default function Login() {
             </div>
           </div>
 
-          {/* Remember Me & Forgot Password */}
           <div className="flex items-center justify-between text-sm">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -154,16 +209,15 @@ export default function Login() {
               />
               <span className="text-slate-700 font-medium">Remember me</span>
             </label>
-            <button 
+            <button
               type="button"
-              onClick={handleForgotPassword} 
+              onClick={handleForgotPassword}
               className="text-cyan-600 hover:text-cyan-700 font-bold transition decoration-none bg-transparent border-none cursor-pointer p-0"
             >
               Forgot Password?
             </button>
           </div>
 
-          {/* 🔴 زرار الدخول المربوط بالـ Loading 🔴 */}
           <button
             type="submit"
             disabled={isLoading}
@@ -180,16 +234,17 @@ export default function Login() {
           </button>
         </form>
 
-        {/* Divider */}
         <div className="my-6 flex items-center gap-3">
           <div className="flex-1 h-px bg-slate-200"></div>
           <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Or continue with</span>
           <div className="flex-1 h-px bg-slate-200"></div>
         </div>
 
-        {/* Social Auth Buttons */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <button onClick={handleGoogleSignIn} type="button" className="flex items-center justify-center gap-2 py-3 px-4 border border-slate-200 bg-white rounded-xl hover:bg-slate-50 transition font-bold text-slate-700 cursor-pointer shadow-sm">
+        {/* 🔴 أزرار السوشيال ميديا 🔴 */}
+        <div className="grid grid-cols-2 gap-3 mb-6 items-center">
+
+          {/* زرار جوجل */}
+          <button onClick={() => handleGoogleSignIn()} type="button" className="flex items-center justify-center gap-2 h-[46px] w-full border border-slate-200 bg-white rounded-xl hover:bg-slate-50 transition font-bold text-slate-700 cursor-pointer shadow-sm">
             <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
               <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
@@ -199,15 +254,22 @@ export default function Login() {
             <span className="text-sm">Google</span>
           </button>
 
-          <button onClick={handleAppleSignIn} type="button" className="flex items-center justify-center gap-2 py-3 px-4 border border-slate-200 bg-white rounded-xl hover:bg-slate-50 transition font-bold text-slate-700 cursor-pointer shadow-sm">
-            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              <path d="M17.05 20.28c-.98.95-2.05.8-3.08.38-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.38C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8.905-.15 1.77-.76 2.84-.64 1.2.12 2.09.72 2.59 1.81-2.62 1.58-2.24 5.98.48 7.13-.55 1.49-1.36 2.06-2.99 2.27z" />
-            </svg>
-            <span className="text-sm">Apple</span>
-          </button>
+          {/* زرار فيسبوك */}
+          <FacebookLogin
+            appId="4290232774521719" // 🔴 حط الـ ID هنا
+            fields="name,email,picture"
+            callback={handleFacebookSignIn}
+            render={renderProps => (
+              <button onClick={renderProps.onClick} type="button" className="flex items-center justify-center gap-2 h-[46px] w-full border border-slate-200 bg-white rounded-xl hover:bg-slate-50 transition font-bold text-slate-700 cursor-pointer shadow-sm">
+                <svg className="w-5 h-5 text-[#1877F2]" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
+                </svg>
+                <span className="text-sm">Facebook</span>
+              </button>
+            )}
+          />
         </div>
 
-        {/* Sign Up Link */}
         <div className="text-center text-sm text-slate-600">
           Don't have an account?{' '}
           <Link to="/register" className="text-cyan-600 hover:text-cyan-700 font-bold transition decoration-none">
@@ -215,6 +277,27 @@ export default function Login() {
           </Link>
         </div>
       </div>
+
+      {/* ================= MODAL ================= */}
+      {feedbackModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl animate-in zoom-in duration-200 border-2 border-cyan-100">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-cyan-50">
+              <Info className="h-8 w-8 text-cyan-600" />
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-900">{feedbackModal.title}</h3>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              {feedbackModal.message}
+            </p>
+            <button
+              onClick={() => setFeedbackModal({ isOpen: false, title: "", message: "" })}
+              className="mt-6 w-full rounded-xl bg-slate-100 py-3 font-bold text-slate-700 transition hover:bg-slate-200 border-none cursor-pointer"
+            >
+              Okay
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

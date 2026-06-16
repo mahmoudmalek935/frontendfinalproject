@@ -7,4 +7,9 @@ export default defineConfig({
     react(),
     tailwindcss(), // 🌟 شغلناها هنا
   ],
+  // 🌟 الجزء الجديد لتثبيت البورت ومنع تغييره 🌟
+  server: {
+    port: 5173,
+    strictPort: true,
+  },
 })

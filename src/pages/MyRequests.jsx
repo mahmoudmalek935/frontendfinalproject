@@ -12,7 +12,8 @@ import {
   Wrench,
   Loader2,
   X,
-  AlertTriangle
+  AlertTriangle,
+  Phone // 🔴 ضفنا أيقونة التليفون
 } from "lucide-react"
 
 const FILTERS = ["All", "Pending", "In Progress", "Completed", "Cancelled"]
@@ -23,14 +24,14 @@ export default function MyRequests() {
   const [isLoading, setIsLoading] = useState(true)
   const navigate = useNavigate()
 
-  // 🔴 حالات الـ Modal الخاص بالتقييم
+  // حالات الـ Modal الخاص بالتقييم
   const [isRateModalOpen, setIsRateModalOpen] = useState(false)
   const [orderToRate, setOrderToRate] = useState(null)
   const [ratingValue, setRatingValue] = useState(5)
   const [comment, setComment] = useState("")
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
-  // 🔴 حالات الـ Modals الجديدة (تأكيد الإلغاء، النجاح، والخطأ)
+  // حالات الـ Modals (تأكيد الإلغاء، النجاح، والخطأ)
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, orderId: null })
   const [feedbackModal, setFeedbackModal] = useState({ isOpen: false, type: "", title: "", message: "" })
 
@@ -49,14 +50,24 @@ export default function MyRequests() {
 
       if (response.ok) {
         const data = await response.json();
-        const formattedData = data.map(order => ({
-          id: order.id,
-          date: new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-          service: order.service?.name || "General Service",
-          provider: order.providerId ? "Provider Assigned" : "Searching for expert...",
-          status: order.status,
-          paid: null
-        }));
+        const formattedData = data.map(order => {
+          // 🔴 سحب اسم الصنايعي ورقم تليفونه من الداتا بيز
+          const providerName = order.provider && order.provider.user ? order.provider.user.fullName : "Not Assigned";
+          const providerPhone = order.provider ? (order.provider.whatsAppNumber || order.provider.user?.phoneNumber) : null;
+
+          return {
+            id: order.id,
+            date: new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            service: order.service?.name || "General Service",
+            providerName: providerName, // 🔴 الاسم
+            providerPhone: providerPhone, // 🔴 التليفون
+            status: order.status,
+            paid: null
+          }
+        });
+        
+        // نعرض أحدث الأوردرات فوق
+        formattedData.sort((a, b) => b.id - a.id);
         setRequests(formattedData);
       }
     } catch (error) {
@@ -91,7 +102,7 @@ export default function MyRequests() {
     navigate(`/order-details/${id}`);
   }
 
-  // فتح نافذة تأكيد الإلغاء بدلاً من window.confirm
+  // فتح نافذة تأكيد الإلغاء
   const initiateCancel = (id) => {
     setConfirmModal({ isOpen: true, orderId: id })
   }
@@ -99,18 +110,18 @@ export default function MyRequests() {
   // تنفيذ الإلغاء الفعلي بعد تأكيد العميل
   const executeCancel = async () => {
     const id = confirmModal.orderId;
-    setConfirmModal({ isOpen: false, orderId: null }); // قفل نافذة التأكيد فوراً
+    setConfirmModal({ isOpen: false, orderId: null }); 
     
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(`https://localhost:7088/api/Orders/${id}`, {
-        method: 'DELETE',
+        method: 'DELETE', // أو PUT حسب ما إنت ضابط مسار الـ Cancel في الباك إند
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (response.ok) {
         setRequests(prev => prev.map(req =>
-          req.id === id ? { ...req, status: "Cancelled", provider: "Cancelled by user" } : req
+          req.id === id ? { ...req, status: "Cancelled", providerName: req.providerName } : req
         ));
         showFeedback("success", "Request Cancelled", `Order #${id} has been cancelled successfully.`);
       } else {
@@ -123,7 +134,7 @@ export default function MyRequests() {
     }
   }
 
-  // 🔴 دوال التقييم 🔴
+  // دوال التقييم
   const openRateModal = (id) => {
     setOrderToRate(id);
     setRatingValue(5);
@@ -266,7 +277,18 @@ export default function MyRequests() {
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">Provider</p>
-                        <p className="text-sm font-bold text-slate-900">{req.provider}</p>
+                        
+                        {/* 🔴 عرض اسم الصنايعي أو رسالة البحث */}
+                        <p className={`text-sm font-bold ${req.providerName === "Not Assigned" ? "text-slate-400 italic" : "text-slate-900"}`}>
+                          {req.providerName === "Not Assigned" ? "Searching for expert..." : req.providerName}
+                        </p>
+                        
+                        {/* 🔴 عرض رقم التليفون لو الصنايعي موجود */}
+                        {req.providerName !== "Not Assigned" && req.providerPhone && (
+                          <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-1">
+                            <Phone className="w-3 h-3" /> {req.providerPhone}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -315,7 +337,7 @@ export default function MyRequests() {
       </div>
 
       {/* =========================================
-          MODALS SECTION (بديل الـ Alerts) 
+          MODALS SECTION 
       ========================================= */}
 
       {/* 1. Modal تأكيد الإلغاء */}

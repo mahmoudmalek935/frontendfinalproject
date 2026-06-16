@@ -11,14 +11,31 @@ import {
   XCircle, 
   AlertCircle, 
   Loader2,
-  FileText
+  FileText,
+  Phone,
+  X
 } from "lucide-react"
 
 export default function OrderDetails() {
-  const { id } = useParams() // سحب الـ ID من رابط الصفحة
+  const { id } = useParams() 
   const navigate = useNavigate()
   const [order, setOrder] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
+
+  // Modal State
+  const [feedbackModal, setFeedbackModal] = useState({ isOpen: false, type: "", title: "", message: "", redirect: false })
+
+  const showFeedback = (type, title, message, redirect = false) => {
+    setFeedbackModal({ isOpen: true, type, title, message, redirect })
+  }
+
+  const closeFeedback = () => {
+    const shouldRedirect = feedbackModal.redirect
+    setFeedbackModal({ isOpen: false, type: "", title: "", message: "", redirect: false })
+    if (shouldRedirect) {
+      navigate('/my-requests')
+    }
+  }
 
   useEffect(() => {
     const fetchOrderDetails = async () => {
@@ -37,11 +54,11 @@ export default function OrderDetails() {
           const data = await response.json()
           setOrder(data)
         } else {
-          alert("Order not found or unauthorized.")
-          navigate('/my-requests')
+          showFeedback("error", "Order Not Found", "This order does not exist or you are not authorized to view it.", true)
         }
       } catch (error) {
         console.error("Error fetching order details:", error)
+        showFeedback("error", "Connection Error", "Failed to load order details. Please check your internet.", true)
       } finally {
         setIsLoading(false)
       }
@@ -55,7 +72,8 @@ export default function OrderDetails() {
       case "Pending": return { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", icon: <Clock className="w-4 h-4" /> }
       case "In Progress": return { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200", icon: <Wrench className="w-4 h-4" /> }
       case "Completed": return { bg: "bg-green-50", text: "text-green-700", border: "border-green-200", icon: <CheckCircle2 className="w-4 h-4" /> }
-      case "Cancelled": return { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: <XCircle className="w-4 h-4" /> }
+      case "Cancelled": 
+      case "Canceled": return { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: <XCircle className="w-4 h-4" /> }
       default: return { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200", icon: <AlertCircle className="w-4 h-4" /> }
     }
   }
@@ -69,15 +87,48 @@ export default function OrderDetails() {
     )
   }
 
-  if (!order) return null
+  if (!order) {
+    return (
+      <div className="py-10 bg-slate-50 min-h-screen relative">
+        {feedbackModal.isOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+            <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl animate-in zoom-in duration-200 border-2 border-red-100">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+                <XCircle className="h-8 w-8 text-red-600" />
+              </div>
+              <h3 className="text-xl font-extrabold text-slate-900">{feedbackModal.title}</h3>
+              <p className="mt-2 text-sm font-medium text-slate-500">{feedbackModal.message}</p>
+              <button
+                onClick={closeFeedback}
+                className="mt-6 w-full rounded-xl bg-slate-100 py-3 font-bold text-slate-700 transition hover:bg-slate-200 border-none cursor-pointer"
+              >
+                Go Back
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   const statusStyle = getStatusStyle(order.status)
+  
+  const orderPrice = Number(order.totalPrice || order.price || (order.provider ? order.provider.pricePerVisit : 0) || 0)
+  const providerName = order.provider && order.provider.user ? order.provider.user.fullName : "Not Assigned"
+  const providerPhone = order.provider ? (order.provider.whatsAppNumber || order.provider.user?.phoneNumber) : null
+
+  // 🔴 دالة ذكية لعرض نص الصنايعي بناءً على كل الحالات الممكنة
+  const getProviderDisplayText = () => {
+    if (providerName !== "Not Assigned") return providerName;
+    if (order.status === "Pending") return "Searching for the best expert near you...";
+    if (order.status === "Cancelled" || order.status === "Canceled") return "Order cancelled before assignment.";
+    return "No expert assigned.";
+  }
 
   return (
-    <div className="py-10 bg-slate-50 min-h-screen">
+    <div className="py-10 bg-slate-50 min-h-screen relative">
       <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
         
-        {/* Back Button */}
         <button 
           onClick={() => navigate('/my-requests')}
           className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-slate-600 hover:text-slate-900 transition-colors bg-transparent border-none cursor-pointer"
@@ -85,10 +136,8 @@ export default function OrderDetails() {
           <ArrowLeft className="w-4 h-4" /> Back to My Requests
         </button>
 
-        {/* Main Card */}
         <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
           
-          {/* Card Header */}
           <div className="px-6 py-6 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
             <div>
               <span className="text-xs font-bold text-cyan-600 uppercase tracking-wider">Baytack Order System</span>
@@ -103,10 +152,8 @@ export default function OrderDetails() {
             </span>
           </div>
 
-          {/* Card Body */}
           <div className="px-6 py-6 space-y-6">
             
-            {/* Service Type */}
             <div>
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Requested Service</h3>
               <div className="flex items-center gap-3 bg-slate-50 border border-slate-100 rounded-xl p-4">
@@ -115,7 +162,6 @@ export default function OrderDetails() {
               </div>
             </div>
 
-            {/* Address & Description */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Service Location</h3>
@@ -134,7 +180,6 @@ export default function OrderDetails() {
               </div>
             </div>
 
-            {/* Provider Info */}
             <div className="pt-4 border-t border-slate-100">
               <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-2">Assigned Professional</h3>
               <div className="flex items-center gap-3">
@@ -142,14 +187,20 @@ export default function OrderDetails() {
                   <User className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-900">
-                    {order.providerId ? "Expert Assigned" : "Searching for the best expert near you..."}
+                  {/* 🔴 النص بقى ديناميكي ومتوافق مع كل الحالات */}
+                  <p className={`text-sm font-bold ${providerName === "Not Assigned" ? "text-slate-400 italic" : "text-slate-900"}`}>
+                    {getProviderDisplayText()}
                   </p>
+                  
+                  {providerName !== "Not Assigned" && providerPhone && (
+                    <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-1">
+                      <Phone className="w-3 h-3" /> {providerPhone}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
 
-            {/* 🔴 عرض الصورة المرفوعة للمشكلة 🔴 */}
             {order.attachments && order.attachments.length > 0 && (
               <div className="pt-6 border-t border-slate-100">
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-3">Problem Photo</h3>
@@ -158,16 +209,45 @@ export default function OrderDetails() {
                     src={`https://localhost:7088${order.attachments[0].imageUrl}`} 
                     alt="Problem attachment" 
                     className="w-full h-auto object-cover max-h-80"
-                    onError={(e) => { e.target.style.display = 'none' }} // حماية لو الصورة ممسوحة من السيرفر
+                    onError={(e) => { e.target.style.display = 'none' }} 
                   />
                 </div>
               </div>
             )}
+            
+            <div className="flex items-center justify-between bg-slate-900 text-white p-4 rounded-xl mt-6">
+              <span className="font-medium text-slate-300">Total Amount</span>
+              <span className="text-xl font-extrabold">EGP {orderPrice}</span>
+            </div>
 
           </div>
-
         </div>
       </div>
+
+      {feedbackModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className={`w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl animate-in zoom-in duration-200 border-2 ${feedbackModal.type === "success" ? "border-green-100" : "border-red-100"}`}>
+            <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${feedbackModal.type === "success" ? "bg-green-50" : "bg-red-50"}`}>
+              {feedbackModal.type === "success" ? (
+                <CheckCircle2 className="h-8 w-8 text-green-600" />
+              ) : (
+                <XCircle className="h-8 w-8 text-red-600" />
+              )}
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-900">{feedbackModal.title}</h3>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              {feedbackModal.message}
+            </p>
+            <button
+              onClick={closeFeedback}
+              className="mt-6 w-full rounded-xl bg-slate-100 py-3 font-bold text-slate-700 transition hover:bg-slate-200 border-none cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

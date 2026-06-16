@@ -32,7 +32,7 @@ export default function ProviderDashboard() {
   const [activeTab, setActiveTab] = useState("requests");
   const [isLoading, setIsLoading] = useState(true);
 
-  // 🔴 States جديدة للأرباح والمودالز والتحميل بتاع الزراير
+  // States الأرباح والمودالز والتحميل
   const [totalEarnings, setTotalEarnings] = useState(0);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
@@ -54,11 +54,17 @@ export default function ProviderDashboard() {
       const pending = [];
       const active = [];
       const completed = [];
-      let initialEarnings = 0; 
+      
+      // 🔴 السطر ده هيتحدث من الداتا بيز عشان نجيب الـ TotalEarnings الحقيقي
+      let fetchedEarnings = 0; 
+      
+      // بنجيب بيانات الصنايعي عشان نعرض التوتال الحقيقي بتاعه أول ما يفتح
+      if (data.length > 0 && data[0].provider) {
+          fetchedEarnings = data[0].provider.totalEarnings || 0;
+      }
 
       data.forEach(order => {
-        // 🔴 التعديل السحري هنا: بنصطاد السعر سواء جاي من الأوردر أو من بيانات الفني وبنحوله لرقم
-        const orderPrice = Number(order.totalPrice || order.price || (order.provider ? order.provider.pricePerVisit : 0) || 0);
+        const orderPrice = Number(order.price || 0);
 
         const formattedOrder = {
           id: order.id,
@@ -71,25 +77,24 @@ export default function ProviderDashboard() {
           time: new Date(order.orderDate).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
           urgency: order.urgency ? order.urgency.toLowerCase() : "green",
           status: order.status,
-          price: orderPrice, // 🔴 السعر الحقيقي
+          price: orderPrice,
           amount: `EGP ${orderPrice}`, 
           rating: order.review ? order.review.rating : 0
         };
 
         if (order.status === "Pending") {
           pending.push(formattedOrder);
-        } else if (order.status === "In Progress" || order.status === "Accepted") {
+        } else if (order.status === "Accepted" || order.status === "In Progress") {
           active.push(formattedOrder);
         } else if (order.status === "Completed") {
           completed.push(formattedOrder);
-          initialEarnings += orderPrice; // بنجمع الأرباح السابقة
         }
       });
 
       setRequests(pending);
       setActiveJobs(active);
       setHistory(completed);
-      setTotalEarnings(initialEarnings); 
+      setTotalEarnings(fetchedEarnings); // 🔴 توتال الأرباح الحقيقي من الداتا بيز
 
     } catch (error) {
       console.error("Error fetching orders:", error);
@@ -106,83 +111,115 @@ export default function ProviderDashboard() {
     fetchOrders();
   }, []);
 
-  // دالة مساعدة لتحديث حالة الطلب في الباك إند
-  const updateOrderStatus = async (orderId, newStatus, assignProvider = false) => {
-    const body = { Status: newStatus };
-    if (assignProvider) {
-      body.ProviderId = parseInt(providerId); 
-    }
-
-    try {
-      const response = await fetch(`https://localhost:7088/api/Orders/${orderId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify(body)
-      });
-      return response.ok;
-    } catch (error) {
-      console.error("Error updating order:", error);
-      return false;
-    }
-  };
-
-  // 2. قبول الطلب
+  // 2. قبول الطلب (تعدل للـ API الجديد بتاع الـ Accept)
   const handleAccept = async (id) => {
     setIsActionLoading(true);
-    const success = await updateOrderStatus(id, "In Progress", true);
-    setIsActionLoading(false);
+    
+    try {
+      const response = await fetch(`https://localhost:7088/api/Orders/accept/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
 
-    if (success) {
-      const jobToAccept = requests.find((r) => r.id === id);
-      setActiveJobs((prev) => [{ ...jobToAccept, status: "In Progress" }, ...prev]);
-      setRequests((prev) => prev.filter((r) => r.id !== id));
-      setActiveTab("active");
-      setSuccessMessage("Job request accepted successfully!"); // 🔴 استبدال الـ alert
-    } else {
-      setErrorMessage("An error occurred while accepting the request. Please try again."); // 🔴 استبدال الـ alert
+      if (response.ok) {
+        const data = await response.json();
+        const appliedPrice = data.appliedPrice; // 🔴 السعر اللي السيستم سحبه
+
+        const jobToAccept = requests.find((r) => r.id === id);
+        
+        // ننقله للـ Active Jobs ونحطله السعر
+        setActiveJobs((prev) => [{ 
+            ...jobToAccept, 
+            status: "Accepted", 
+            price: appliedPrice,
+            amount: `EGP ${appliedPrice}` 
+        }, ...prev]);
+        
+        setRequests((prev) => prev.filter((r) => r.id !== id));
+        setActiveTab("active");
+        setSuccessMessage(`Job accepted! Expected earnings: EGP ${appliedPrice}`);
+      } else {
+        const err = await response.json();
+        setErrorMessage(err.message || "Failed to accept the request.");
+      }
+    } catch (error) {
+      setErrorMessage("Network error while accepting the job.");
+    } finally {
+      setIsActionLoading(false);
     }
   };
 
   // 3. رفض الطلب 
   const handleDecline = (id) => {
-    setRequests((prev) => prev.filter((r) => r.id !== id));
-  };
-
-  // 4. إنهاء الشغلانة النشطة 
-  const handleCompleteJob = async (id) => {
-    setIsActionLoading(true);
-    const success = await updateOrderStatus(id, "Completed", false);
-    setIsActionLoading(false);
-
-    if (success) {
-      const jobToComplete = activeJobs.find((j) => j.id === id);
-      setHistory((prev) => [{ ...jobToComplete, status: "Completed" }, ...prev]);
-      setActiveJobs((prev) => prev.filter((j) => j.id !== id));
-      
-      // 🔴 تحديث الفلوس لايف (نتأكد إننا بنجمع أرقام Number)
-      setTotalEarnings((prev) => prev + Number(jobToComplete.price || 0));
-      
-      setActiveTab("history");
-      setSuccessMessage(`Job completed successfully! EGP ${jobToComplete.price} added to your earnings.`); // 🔴 رسالة بتوضح الفلوس اللي زادت
-    } else {
-      setErrorMessage("An error occurred while completing the job."); 
+    if(window.confirm("Are you sure you want to decline this request?")) {
+        setRequests((prev) => prev.filter((r) => r.id !== id));
     }
   };
+
+  // 4. إنهاء الشغلانة النشطة (تعدل للـ API الجديد بتاع الـ Complete)
+  const handleCompleteJob = async (id) => {
+    setIsActionLoading(true);
+    
+    try {
+      const response = await fetch(`https://localhost:7088/api/Orders/complete/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        
+        const jobToComplete = activeJobs.find((j) => j.id === id);
+        setHistory((prev) => [{ ...jobToComplete, status: "Completed" }, ...prev]);
+        setActiveJobs((prev) => prev.filter((j) => j.id !== id));
+        
+        // 🔴 بنحدث الـ Total Earnings بالرقم الجديد اللي راجع من الباك إند
+        setTotalEarnings(data.newBalance);
+        
+        setActiveTab("history");
+        setSuccessMessage(`Job completed successfully! Earnings have been added to your wallet.`); 
+      } else {
+        const err = await response.json();
+        setErrorMessage(err.message || "Failed to complete the job."); 
+      }
+    } catch (error) {
+       setErrorMessage("Network error while completing the job.");
+    } finally {
+        setIsActionLoading(false);
+    }
+  };
+
   // 5. إلغاء شغلانة نشطة
   const handleCancelActiveJob = async (id) => {
     if (window.confirm("Are you sure you want to cancel this active job? The customer will be notified.")) {
       setIsActionLoading(true);
-      const success = await updateOrderStatus(id, "Canceled", false);
-      setIsActionLoading(false);
+      
+      try {
+        const response = await fetch(`https://localhost:7088/api/Orders/${id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ Status: "Canceled" })
+        });
 
-      if (success) {
-        setActiveJobs((prev) => prev.filter((j) => j.id !== id));
-        setSuccessMessage("Job has been successfully canceled.");
-      } else {
-        setErrorMessage("An error occurred while canceling the job."); // 🔴 استبدال الـ alert
+        if (response.ok) {
+          setActiveJobs((prev) => prev.filter((j) => j.id !== id));
+          setSuccessMessage("Job has been successfully canceled.");
+        } else {
+          setErrorMessage("Failed to cancel the job.");
+        }
+      } catch (error) {
+          setErrorMessage("Network error while canceling the job.");
+      } finally {
+          setIsActionLoading(false);
       }
     }
   };
@@ -197,7 +234,7 @@ export default function ProviderDashboard() {
     },
     {
       label: "Total Earnings",
-      value: `EGP ${totalEarnings}`, // 🔴 مربوطة بالـ State الديناميك
+      value: `EGP ${totalEarnings}`, // 🔴 مربوطة ومحدثة بالرقم الحقيقي
       icon: Wallet,
       iconBg: "bg-amber-100",
       iconColor: "text-amber-600",
@@ -413,9 +450,14 @@ export default function ProviderDashboard() {
                           </p>
                         </div>
                       </div>
-                      <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 border border-slate-200 px-3.5 py-1.5 text-sm font-bold text-slate-700">
-                        <Wrench className="h-4 w-4 text-cyan-600" /> {job.service}
-                      </span>
+                      
+                      {/* 🔴 عرض السعر في الكارت */}
+                      <div className="flex flex-col items-end">
+                        <span className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 border border-slate-200 px-3.5 py-1.5 text-sm font-bold text-slate-700">
+                          <Wrench className="h-4 w-4 text-cyan-600" /> {job.service}
+                        </span>
+                        <span className="mt-2 text-base font-extrabold text-amber-600">{job.amount}</span>
+                      </div>
                     </div>
                   </div>
 
@@ -497,7 +539,7 @@ export default function ProviderDashboard() {
 
       </div>
 
-      {/* ---------------- MODALS (رسائل النجاح والخطأ الشيك) ---------------- */}
+      {/* ---------------- MODALS (رسائل النجاح والخطأ) ---------------- */}
       
       {/* Success Modal */}
       {successMessage && (

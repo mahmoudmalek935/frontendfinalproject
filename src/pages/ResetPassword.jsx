@@ -1,29 +1,28 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Lock, Eye, EyeOff } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ShieldCheck, Lock, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 export default function ResetPassword() {
-  const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   
   const navigate = useNavigate();
+  const location = useLocation(); 
+  const { email, otp } = location.state || {}; // 👈 بنستقبل الإيميل والكود
+  // لو عايز تاخد الإيميل والـ OTP من الصفحة اللي فاتت عشان الباك إند
+  // const location = useLocation(); 
+  // const { email, otp } = location.state || {};
 
-  const handleSubmit = (e) => {
+ const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMessage('');
     setSuccessMessage('');
-
-    // Validation
-    if (!otp || otp.length !== 6 || !/^\d+$/.test(otp)) {
-      setErrorMessage('Please enter a valid 6-digit code');
-      return;
-    }
 
     if (!newPassword || newPassword.length < 8) {
       setErrorMessage('Password must be at least 8 characters long');
@@ -35,41 +34,56 @@ export default function ResetPassword() {
       return;
     }
 
-    // Simulate API call
+    // التأكد إن الإيميل مبعوت من الصفحة اللي فاتت
+    if (!email || !otp) {
+      setErrorMessage('Session expired. Please request a new OTP.');
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
+
+    try {
+      const response = await fetch('https://localhost:7088/api/Auth/reset-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, otp, newPassword })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText || 'Failed to reset password.');
+      }
+
       setSuccessMessage('Password reset successfully! Redirecting to login...');
-      setOtp('');
       setNewPassword('');
       setConfirmPassword('');
       
-      // التوجيه التلقائي بعد ثانيتين لصفحة اللوجين
+      // التوجيه التلقائي لصفحة اللوجين
       setTimeout(() => {
         navigate('/login');
       }, 2000);
 
-    }, 1500);
-  };
-
-  const handleResend = () => {
-    setSuccessMessage('Code resent to your email');
-    setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div className="min-h-[85vh] bg-slate-50 flex items-center justify-center p-4 py-16">
       <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 border border-slate-100">
+        
         {/* Header */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-16 h-16 bg-cyan-50 rounded-full flex items-center justify-center mb-4 border border-cyan-100 shadow-sm">
-            <ShieldCheck className="w-8 h-8 text-cyan-600" />
+            <Lock className="w-8 h-8 text-cyan-600" />
           </div>
           <h1 className="text-2xl font-bold text-slate-900 text-center mb-2">
             Set New Password
           </h1>
           <p className="text-sm text-slate-500 text-center leading-relaxed">
-            Enter the 6-digit code sent to your email and choose a new password.
+            Please choose a strong password that you haven't used before.
           </p>
         </div>
 
@@ -87,22 +101,6 @@ export default function ResetPassword() {
 
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Verification Code Input */}
-          <div>
-            <label htmlFor="otp" className="block text-sm font-bold text-slate-700 mb-2">
-              Verification Code (OTP)
-            </label>
-            <input
-              id="otp"
-              type="text"
-              placeholder="e.g. 123456"
-              maxLength={6}
-              value={otp}
-              onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-              className="w-full px-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-600/20 focus:border-cyan-600 transition text-slate-900 placeholder-slate-400 text-center tracking-widest font-mono text-lg"
-            />
-          </div>
-
           {/* New Password Input */}
           <div>
             <label htmlFor="newPassword" className="block text-sm font-bold text-slate-700 mb-2">
@@ -156,23 +154,13 @@ export default function ResetPassword() {
           {/* Submit Button */}
           <button
             type="submit"
-            disabled={isLoading}
-            className="w-full bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-400 text-white font-bold py-3.5 rounded-xl transition duration-200 mt-8 shadow-md border-none cursor-pointer"
+            disabled={isLoading || successMessage}
+            className="w-full flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-400 disabled:cursor-not-allowed text-white font-bold py-3.5 rounded-xl transition duration-200 mt-8 shadow-md border-none cursor-pointer"
           >
-            {isLoading ? 'Resetting...' : 'Reset Password'}
+            {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Confirm Reset Password'}
           </button>
         </form>
 
-        {/* Footer Text */}
-        <div className="mt-8 pt-6 border-t border-slate-100 text-center text-sm text-slate-500 font-medium">
-          Didn't receive the code?{' '}
-          <button
-            onClick={handleResend}
-            className="text-cyan-600 hover:text-cyan-700 font-bold transition bg-transparent border-none cursor-pointer p-0 underline decoration-cyan-200 underline-offset-4"
-          >
-            Resend
-          </button>
-        </div>
       </div>
     </div>
   );

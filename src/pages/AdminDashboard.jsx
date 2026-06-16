@@ -9,7 +9,9 @@ import {
   MoreVertical,
   Settings,
   ClipboardList,
-  Loader2
+  Loader2,
+  AlertCircle,
+  CheckCircle2
 } from "lucide-react"
 
 export default function AdminDashboard() {
@@ -19,14 +21,16 @@ export default function AdminDashboard() {
   const [recentUsers, setRecentUsers] = useState([]);
   const [recentTransactions, setRecentTransactions] = useState([]);
 
-  // 1. جلب كل البيانات وحساب الإحصائيات
+  // 🔴 States المودالز الشيك بدل الأليرت
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+
   useEffect(() => {
     const fetchDashboardOverview = async () => {
       const token = localStorage.getItem("token");
       if (!token) return;
 
       try {
-        // بنجيب الداتا من 3 مسارات في نفس الوقت عشان السرعة (Promise.all)
         const [usersRes, provRes, ordersRes] = await Promise.all([
           fetch("https://localhost:7088/api/Auth", { headers: { "Authorization": `Bearer ${token}` } }),
           fetch("https://localhost:7088/api/Providers/admin/all", { headers: { "Authorization": `Bearer ${token}` } }),
@@ -39,13 +43,25 @@ export default function AdminDashboard() {
 
         // 📊 حساب الأرقام للبطاقات اللي فوق
         const completedOrders = orders.filter(o => o.status === "Completed");
-        const totalRev = completedOrders.reduce((sum, o) => sum + Number(o.totalPrice || o.price || (o.provider ? o.provider.pricePerVisit : 0) || 0), 0);
+        
+        // 🌟 التعديل السحري: هنستخرج العمال من الأوردرات (عشان نضمن إن حقل totalEarnings موجود) ونجمعهم بدون تكرار
+        const uniqueProvidersFromOrders = [];
+        orders.forEach(o => {
+            if (o.provider && !uniqueProvidersFromOrders.some(p => p.id === o.provider.id)) {
+                uniqueProvidersFromOrders.push(o.provider);
+            }
+        });
+
+        // 💰 نجمع الأرباح من العمال اللي استخرجناهم
+        const totalRev = uniqueProvidersFromOrders.reduce((sum, p) => {
+            return sum + (Number(p.totalEarnings) || 0);
+        }, 0);
 
         setStatsData({
           totalUsers: users.length,
           activeProviders: providers.filter(p => p.isActive).length,
           completedJobs: completedOrders.length,
-          revenue: totalRev
+          revenue: totalRev // 🔴 المفروض كده يقرأ الرقم صح 100%
         });
 
         // 👥 أحدث 4 مستخدمين سجلوا
@@ -68,13 +84,14 @@ export default function AdminDashboard() {
             id: `#ORD-${o.id}`,
             service: o.service?.name || "Service Request",
             amount: `EGP ${price}`,
-            commission: `EGP ${price * 0.1}`, // افترضنا إن عمولة التطبيق 10%
+            commission: `EGP ${(price * 0.1).toFixed(2)}`,
             status: o.status || "Pending"
           };
         }));
 
       } catch (error) {
         console.error("Failed to load dashboard data:", error);
+        setErrorMessage("Connection error. Failed to load dashboard data."); 
       } finally {
         setIsLoading(false);
       }
@@ -95,7 +112,7 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-slate-100 py-8 px-4 sm:px-6 lg:px-8 relative">
       <div className="max-w-7xl mx-auto">
         
         {/* Header with Quick Actions */}
@@ -115,7 +132,7 @@ export default function AdminDashboard() {
               Manage Categories
             </Link>
             
-            {/* 2. Manage Orders (🔴 اللي إنت طلبته 🔴) */}
+            {/* 2. Manage Orders */}
             <Link 
               to="/manage-orders" 
               className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-colors shadow-sm decoration-none"
@@ -235,6 +252,51 @@ export default function AdminDashboard() {
 
         </div>
       </div>
+
+      {/* ---------------- MODALS (رسائل النجاح والخطأ) ---------------- */}
+      
+      {/* Success Modal */}
+      {successMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl animate-in zoom-in duration-300 border-2 border-green-100">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
+              <CheckCircle2 className="h-8 w-8 text-green-600" />
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-900">Success!</h3>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              {successMessage}
+            </p>
+            <button
+              onClick={() => setSuccessMessage("")}
+              className="mt-6 w-full rounded-xl bg-slate-100 py-2.5 font-bold text-slate-700 transition hover:bg-slate-200 border-none cursor-pointer"
+            >
+              Awesome
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Error Modal */}
+      {errorMessage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-xl animate-in zoom-in duration-300 border-2 border-red-100">
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-50">
+              <AlertCircle className="h-8 w-8 text-red-500" />
+            </div>
+            <h3 className="text-xl font-extrabold text-slate-900">Oops!</h3>
+            <p className="mt-2 text-sm font-medium text-slate-500">
+              {errorMessage}
+            </p>
+            <button
+              onClick={() => setErrorMessage("")}
+              className="mt-6 w-full rounded-xl bg-slate-100 py-2.5 font-bold text-slate-700 transition hover:bg-slate-200 border-none cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
