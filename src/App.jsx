@@ -32,6 +32,7 @@ import ProviderEditProfile from './pages/ProviderEditProfile';
 import CustomerProfile from './pages/CustomerProfile';
 import OrderDetails from "./pages/OrderDetails"
 import ManageOrders from './pages/ManageOrders';
+import ReviewProvider from "./pages/ReviewProvider";
 
 
 // سكرول للصفحة من فوق
@@ -89,6 +90,7 @@ function App() {
           <Route path="/my-profile" element={<CustomerProfile />} />
           <Route path="/order-details/:id" element={<OrderDetails />} />
           <Route path="/manage-orders" element={<ManageOrders />} />
+          <Route path="/manage-users/review/:id" element={<ReviewProvider />} />
 
           {/* حط هنا أي صفحات تانية عايز فيها ناف بار */}
         </Route>

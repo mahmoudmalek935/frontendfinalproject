@@ -33,6 +33,10 @@ export default function Checkout() {
   const [providerData, setProviderData] = useState(null)
   const [isFetchingProvider, setIsFetchingProvider] = useState(true)
 
+  // 🔴 1. استخراج تاريخ اليوم والوقت الحالي
+  const today = new Date().toISOString().split("T")[0];
+  const currentTime = new Date().toTimeString().slice(0, 5); // هيطلع الوقت بصيغة "14:30" مثلاً
+
   useEffect(() => {
     const fetchProvider = async () => {
       try {
@@ -81,9 +85,14 @@ export default function Checkout() {
     if (!address) newErrors.address = "Required field";
     if (!problem) newErrors.problem = "Required field";
 
+    // 🔴 2. حماية إضافية لو اختار النهارده ووقت عدى
+    if (date === today && time < currentTime) {
+      newErrors.time = "Please select a future time for today.";
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
-      setFormError("Please fill in all required fields.");
+      setFormError("Please check the highlighted fields.");
       return; 
     }
 
@@ -100,7 +109,6 @@ export default function Checkout() {
       setIsLoading(true);
 
       const formData = new FormData();
-      // 🔴 الأسماء هنا كابيتال عشان تطابق الـ CreateOrderDto في الباك إند
       formData.append("ProviderId", id); 
       formData.append("ServiceId", serviceId); 
       formData.append("District", address);
@@ -181,9 +189,14 @@ export default function Checkout() {
                       id="date"
                       type="date"
                       value={date}
+                      min={today}
                       onChange={(e) => {
                         setDate(e.target.value);
                         if (errors.date) setErrors({ ...errors, date: null }); 
+                        // لو اختار يوم جديد، هنصفر الوقت لو كان مختار وقت قديم للنهاردة
+                        if (e.target.value === today && time < currentTime) {
+                          setTime("");
+                        }
                       }}
                       className={`w-full rounded-xl border bg-slate-50 py-3 pl-11 pr-4 text-slate-900 outline-none transition ${errors.date ? 'border-red-500 focus:border-red-500 focus:ring-2 focus:ring-red-100' : 'border-slate-200 focus:border-cyan-500 focus:ring-2 focus:ring-cyan-100'}`}
                     />
@@ -199,6 +212,8 @@ export default function Checkout() {
                       id="time"
                       type="time"
                       value={time}
+                      // 🔴 3. تطبيق خاصية الـ min للوقت بس لو كان اليوم المختار هو النهاردة
+                      min={date === today ? currentTime : undefined}
                       onChange={(e) => {
                         setTime(e.target.value);
                         if (errors.time) setErrors({ ...errors, time: null });

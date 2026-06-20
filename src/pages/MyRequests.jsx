@@ -13,10 +13,11 @@ import {
   Loader2,
   X,
   AlertTriangle,
-  Phone // 🔴 ضفنا أيقونة التليفون
+  Phone 
 } from "lucide-react"
 
-const FILTERS = ["All", "Pending", "In Progress", "Completed", "Cancelled"]
+// 🔴 التعديل الأول: توحيد الكلمة لـ Canceled بـ L واحدة لتطابق الباك إند
+const FILTERS = ["All", "Pending", "In Progress", "Completed", "Canceled"]
 
 export default function MyRequests() {
   const [requests, setRequests] = useState([])
@@ -24,18 +25,15 @@ export default function MyRequests() {
   const [isLoading, setIsLoading] = useState(true)
   const navigate = useNavigate()
 
-  // حالات الـ Modal الخاص بالتقييم
   const [isRateModalOpen, setIsRateModalOpen] = useState(false)
   const [orderToRate, setOrderToRate] = useState(null)
   const [ratingValue, setRatingValue] = useState(5)
   const [comment, setComment] = useState("")
   const [isSubmittingReview, setIsSubmittingReview] = useState(false)
 
-  // حالات الـ Modals (تأكيد الإلغاء، النجاح، والخطأ)
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, orderId: null })
   const [feedbackModal, setFeedbackModal] = useState({ isOpen: false, type: "", title: "", message: "" })
 
-  // 1. جلب الطلبات من الباك إند
   const fetchOrders = async () => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -51,7 +49,6 @@ export default function MyRequests() {
       if (response.ok) {
         const data = await response.json();
         const formattedData = data.map(order => {
-          // 🔴 سحب اسم الصنايعي ورقم تليفونه من الداتا بيز
           const providerName = order.provider && order.provider.user ? order.provider.user.fullName : "Not Assigned";
           const providerPhone = order.provider ? (order.provider.whatsAppNumber || order.provider.user?.phoneNumber) : null;
 
@@ -59,14 +56,14 @@ export default function MyRequests() {
             id: order.id,
             date: new Date(order.orderDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
             service: order.service?.name || "General Service",
-            providerName: providerName, // 🔴 الاسم
-            providerPhone: providerPhone, // 🔴 التليفون
-            status: order.status,
+            providerName: providerName, 
+            providerPhone: providerPhone,
+            // 🔴 نتأكد إن أي حالة راجعة Canceled تتكتب بنفس الشكل
+            status: order.status === "Cancelled" ? "Canceled" : order.status, 
             paid: null
           }
         });
         
-        // نعرض أحدث الأوردرات فوق
         formattedData.sort((a, b) => b.id - a.id);
         setRequests(formattedData);
       }
@@ -82,7 +79,6 @@ export default function MyRequests() {
     fetchOrders();
   }, []);
 
-  // حساب الإحصائيات والفلترة
   const totalRequests = requests.length
   const pendingRequests = requests.filter(r => r.status === "Pending").length
   const completedRequests = requests.filter(r => r.status === "Completed").length
@@ -92,22 +88,18 @@ export default function MyRequests() {
     return req.status === activeFilter
   })
 
-  // دالة عرض رسائل النجاح والخطأ
   const showFeedback = (type, title, message) => {
     setFeedbackModal({ isOpen: true, type, title, message })
   }
 
-  // الأكشنز
   const handleViewDetails = (id) => {
     navigate(`/order-details/${id}`);
   }
 
-  // فتح نافذة تأكيد الإلغاء
   const initiateCancel = (id) => {
     setConfirmModal({ isOpen: true, orderId: id })
   }
 
-  // تنفيذ الإلغاء الفعلي بعد تأكيد العميل
   const executeCancel = async () => {
     const id = confirmModal.orderId;
     setConfirmModal({ isOpen: false, orderId: null }); 
@@ -115,15 +107,16 @@ export default function MyRequests() {
     const token = localStorage.getItem("token");
     try {
       const response = await fetch(`https://localhost:7088/api/Orders/${id}`, {
-        method: 'DELETE', // أو PUT حسب ما إنت ضابط مسار الـ Cancel في الباك إند
+        method: 'DELETE', 
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (response.ok) {
+        // 🔴 التعديل هنا لتوحيد الحالة عند الإلغاء اليدوي كمان
         setRequests(prev => prev.map(req =>
-          req.id === id ? { ...req, status: "Cancelled", providerName: req.providerName } : req
+          req.id === id ? { ...req, status: "Canceled", providerName: req.providerName } : req
         ));
-        showFeedback("success", "Request Cancelled", `Order #${id} has been cancelled successfully.`);
+        showFeedback("success", "Request Canceled", `Order #${id} has been canceled successfully.`);
       } else {
         const err = await response.text();
         showFeedback("error", "Action Failed", err || "Failed to cancel the order.");
@@ -134,7 +127,6 @@ export default function MyRequests() {
     }
   }
 
-  // دوال التقييم
   const openRateModal = (id) => {
     setOrderToRate(id);
     setRatingValue(5);
@@ -182,13 +174,13 @@ export default function MyRequests() {
     }
   }
 
-  // فنكشن الألوان للحالات
+  // 🔴 التعديل هنا: وحدنا الكلمة جوه دالة الألوان عشان تدي لون أحمر للأوردرات المكنسلة
   const getStatusStyle = (status) => {
     switch (status) {
       case "Pending": return { bg: "bg-amber-50", text: "text-amber-700", border: "border-amber-200", icon: <Clock className="w-4 h-4" /> }
       case "In Progress": return { bg: "bg-cyan-50", text: "text-cyan-700", border: "border-cyan-200", icon: <Wrench className="w-4 h-4" /> }
       case "Completed": return { bg: "bg-green-50", text: "text-green-700", border: "border-green-200", icon: <CheckCircle2 className="w-4 h-4" /> }
-      case "Cancelled": return { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: <XCircle className="w-4 h-4" /> }
+      case "Canceled": return { bg: "bg-rose-50", text: "text-rose-700", border: "border-rose-200", icon: <XCircle className="w-4 h-4" /> }
       default: return { bg: "bg-slate-50", text: "text-slate-700", border: "border-slate-200", icon: <AlertCircle className="w-4 h-4" /> }
     }
   }
@@ -197,13 +189,11 @@ export default function MyRequests() {
     <div className="py-8 bg-slate-50 min-h-screen relative">
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
 
-        {/* Header */}
         <header className="mb-8">
           <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">My Service Requests</h1>
           <p className="mt-2 text-sm font-medium text-slate-500">Track and manage your home service bookings.</p>
         </header>
 
-        {/* Stats Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
           <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
             <p className="text-sm font-bold text-slate-500 mb-2">Total Requests</p>
@@ -219,7 +209,6 @@ export default function MyRequests() {
           </div>
         </div>
 
-        {/* Filters */}
         <div className="flex flex-wrap gap-2 mb-8">
           {FILTERS.map(filter => (
             <button
@@ -235,7 +224,6 @@ export default function MyRequests() {
           ))}
         </div>
 
-        {/* Requests List */}
         <div className="flex flex-col gap-4">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-12">
@@ -255,7 +243,6 @@ export default function MyRequests() {
               return (
                 <div key={req.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-shadow hover:shadow-md">
 
-                  {/* Card Header */}
                   <div className="px-6 py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4 bg-slate-50/50">
                     <div>
                       <p className="text-sm font-extrabold text-slate-900">Order #{req.id}</p>
@@ -267,7 +254,6 @@ export default function MyRequests() {
                     </span>
                   </div>
 
-                  {/* Card Body */}
                   <div className="px-6 py-5">
                     <h3 className="text-lg font-bold text-slate-900 mb-4">{req.service}</h3>
 
@@ -277,13 +263,9 @@ export default function MyRequests() {
                       </div>
                       <div>
                         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-0.5">Provider</p>
-                        
-                        {/* 🔴 عرض اسم الصنايعي أو رسالة البحث */}
                         <p className={`text-sm font-bold ${req.providerName === "Not Assigned" ? "text-slate-400 italic" : "text-slate-900"}`}>
                           {req.providerName === "Not Assigned" ? "Searching for expert..." : req.providerName}
                         </p>
-                        
-                        {/* 🔴 عرض رقم التليفون لو الصنايعي موجود */}
                         {req.providerName !== "Not Assigned" && req.providerPhone && (
                           <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-1">
                             <Phone className="w-3 h-3" /> {req.providerPhone}
@@ -301,7 +283,6 @@ export default function MyRequests() {
                     )}
                   </div>
 
-                  {/* Card Footer (Actions) */}
                   <div className="px-6 py-4 bg-slate-50 flex flex-wrap gap-3 border-t border-slate-100">
                     <button
                       onClick={() => handleViewDetails(req.id)}
@@ -335,10 +316,6 @@ export default function MyRequests() {
           )}
         </div>
       </div>
-
-      {/* =========================================
-          MODALS SECTION 
-      ========================================= */}
 
       {/* 1. Modal تأكيد الإلغاء */}
       {confirmModal.isOpen && (
@@ -411,7 +388,6 @@ export default function MyRequests() {
               <p className="text-sm font-medium text-slate-500 mt-1">Order #{orderToRate}</p>
             </div>
 
-            {/* تفاعل النجوم */}
             <div className="flex justify-center gap-2 mb-6">
               {[1, 2, 3, 4, 5].map((star) => (
                 <Star
@@ -425,7 +401,6 @@ export default function MyRequests() {
               ))}
             </div>
 
-            {/* خانة التعليق */}
             <div className="mb-6">
               <label className="block text-sm font-bold text-slate-700 mb-2">
                 Leave a comment (Optional)
@@ -439,7 +414,6 @@ export default function MyRequests() {
               ></textarea>
             </div>
 
-            {/* زر الإرسال */}
             <button
               onClick={submitRating}
               disabled={isSubmittingReview}

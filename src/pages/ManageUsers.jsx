@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, Link } from "react-router-dom" // 🔴 ضفنا Link هنا للراوتنج
 import {
   Search,
   ChevronDown,
@@ -13,7 +13,8 @@ import {
   AlertCircle,
   X,
   AlertTriangle,
-  Ban
+  Ban,
+  FileCheck // 🔴 ضفنا الأيقونة دي لزرار المراجعة
 } from "lucide-react"
 
 const ROLE_FILTERS = ["All Roles", "Customer", "Provider"]
@@ -32,7 +33,7 @@ export default function ManageUsers() {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 6 
 
-  // 🔴 States للمودال الشيك بدل الـ Alerts
+  // States للمودال
   const [confirmModal, setConfirmModal] = useState({ isOpen: false, userId: null, userName: "" })
   const [feedbackModal, setFeedbackModal] = useState({ isOpen: false, type: "", title: "", message: "" })
 
@@ -76,7 +77,6 @@ export default function ManageUsers() {
           if (u.role && u.role.toLowerCase() === "provider") {
             const matchedProvider = provData.find(p => p.userId === u.id);
             if (matchedProvider) {
-              // 🔴 خلينا الحالة إما Active أو Inactive
               currentStatus = matchedProvider.isActive ? "Active" : "Inactive";
               providerId = matchedProvider.providerId;
             } else {
@@ -96,9 +96,7 @@ export default function ManageUsers() {
           };
         });
 
-        // ترتيب الصنايعية اللي محتاجين تفعيل يظهروا الأول
         formattedUsers.sort((a, b) => (a.status === "Inactive" ? -1 : 1));
-
         setUsers(formattedUsers);
       } catch (err) {
         console.error(err);
@@ -127,26 +125,23 @@ export default function ManageUsers() {
   const startIndex = (currentPage - 1) * itemsPerPage
   const paginatedUsers = filtered.slice(startIndex, startIndex + itemsPerPage)
 
-  // 2. زرار التفعيل / الإلغاء (يعمل في صمت بدون إزعاج)
+  // 2. زرار التفعيل / الإلغاء
   const handleToggleStatus = async (providerId, currentStatus) => {
     const token = localStorage.getItem("token");
     const isActivating = currentStatus === "Inactive";
 
-    // 🔴 تحديث الواجهة فوراً (Optimistic UI) لسرعة الاستجابة
     setUsers(prev => prev.map(u => 
         u.providerId === providerId ? { ...u, status: isActivating ? "Active" : "Inactive" } : u
     ));
 
     try {
       if (isActivating) {
-        // تفعيل
         const res = await fetch(`https://localhost:7088/api/Providers/activate/${providerId}`, {
           method: 'PUT',
           headers: { "Authorization": `Bearer ${token}` }
         });
         if (!res.ok) throw new Error("Failed to activate");
       } else {
-        // تعطيل (بناءً على مسار مسح الصنايعي اللي بيخليه Inactive)
         const res = await fetch(`https://localhost:7088/api/Providers/${providerId}`, {
           method: 'DELETE',
           headers: { "Authorization": `Bearer ${token}` }
@@ -155,7 +150,6 @@ export default function ManageUsers() {
       }
     } catch (error) {
       console.error("Toggle error:", error);
-      // لو حصل خطأ في السيرفر، بنرجع حالة الزرار زي ما كانت ونظهرله خطأ
       setUsers(prev => prev.map(u => 
         u.providerId === providerId ? { ...u, status: currentStatus } : u
       ));
@@ -163,14 +157,14 @@ export default function ManageUsers() {
     }
   }
 
-  // 3. دوال الحذف باستخدام الـ Modal
+  // 3. دوال الحذف
   const initiateDelete = (id, name) => {
     setConfirmModal({ isOpen: true, userId: id, userName: name });
   }
 
   const executeDelete = async () => {
     const { userId, userName } = confirmModal;
-    setConfirmModal({ isOpen: false, userId: null, userName: "" }); // قفل المودال فوراً
+    setConfirmModal({ isOpen: false, userId: null, userName: "" });
     
     const token = localStorage.getItem("token");
     try {
@@ -350,7 +344,18 @@ export default function ManageUsers() {
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-2">
                           
-                          {/* 🔴 زرار التفعيل والتعطيل (صامت وسريع) 🔴 */}
+                          {/* 🔴 زرار المراجعة الجديد (بيظهر للصنايعية بس) 🔴 */}
+                          {user.role === "Provider" && user.providerId && (
+                            <Link 
+                              to={`/manage-users/review/${user.providerId}`} 
+                              className="inline-flex items-center gap-1 rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 transition hover:bg-indigo-100 decoration-none shadow-sm"
+                              title="Review Provider Details"
+                            >
+                              <FileCheck className="w-3.5 h-3.5" /> Review
+                            </Link>
+                          )}
+
+                          {/* زرار التفعيل والتعطيل الأصلي */}
                           {user.role === "Provider" && user.providerId && (
                             <button
                               onClick={() => handleToggleStatus(user.providerId, user.status)}
